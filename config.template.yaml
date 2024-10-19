@@ -1,0 +1,70 @@
+# ANPR System Configuration Template
+# Copy this file to ~/.anpr/config.yaml and customize as needed
+# All paths support ~ for home directory expansion
+
+api:
+  host: localhost
+  port: 8000
+  timeout: 30
+
+processing:
+  frame_rate: 24
+  resolution: [1280, 720]
+  confidence_threshold: 0.7
+  batch_size: 1
+
+storage:
+  database_path: ~/.anpr/detections.db
+  snapshots_dir: ~/.anpr/snapshots
+  raw_frames_enabled: false
+
+# YOLOv11 License Plate Detection Model Configuration
+# Fine-tuned model from: huggingface.co/morsetechlab/yolov11-license-plate-detection
+# Available variants: n (nano), s (small), m (medium), l (large), x (extra-large)
+# Download with: python scripts/download_plate_model.py --variant s
+models:
+  # YOLOv11 settings
+  yolo_model: yolov11l                          # Model variant (n/s/m/l/x)
+  yolo_weights: models/yolov11l-license-plate.pt  # Path to model weights
+  yolo_confidence: 0.4                          # Detection confidence threshold
+  yolo_iou: 0.45                                # NMS IoU threshold
+  yolo_input_size: 640                          # Input image size
+  yolo_fp16: true                               # Enable FP16 for GPU acceleration
+  
+  # GPU memory settings
+  gpu_memory_fraction: 0.8                      # Max fraction of GPU memory to use (0.0-1.0)
+                                                # RTX 4050 6GB: 0.9 = ~5.4GB available
+  
+  # OCR settings
+  ocr_model: rapidocr       # RapidOCR - fast ONNX-based OCR engine
+  ocr_weights: ""           # RapidOCR downloads models automatically
+
+# Pipeline processing configuration
+# These settings control how videos are processed through the detection pipeline
+pipeline:
+  frame_skip_interval: 5                        # Process every Nth frame (higher = faster, less accuracy)
+  min_confidence_threshold: 0.5                 # Minimum detection confidence to consider valid
+  duplicate_detection_window: 30                # Seconds to consider same plate as duplicate
+  enable_night_vision: false                    # Enable night vision preprocessing (slower)
+  save_cropped_plates: true                     # Save cropped plate images to disk
+  plate_validation_enabled: true                # Validate Indian plate format
+  batch_size: 1                                 # Processing batch size
+  max_image_width: 1920                         # Max image width for processing
+  max_image_height: 1080                        # Max image height for processing
+
+alerts:
+  enabled: true
+  channels: [desktop, log]
+  log_path: ~/.anpr/alerts.log
+  blacklist_path: ~/.anpr/blacklist.txt
+  rules:
+    new_plate: true
+    repeated_threshold_seconds: 300
+    confidence_threshold: 0.85
+  blacklist: []
+
+logging:
+  level: INFO
+  file: ~/.anpr/anpr.log
+  rotation: 100MB
+  backup_count: 5
