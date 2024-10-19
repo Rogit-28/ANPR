@@ -1,0 +1,20 @@
+# Video Processing
+opencv-python>=4.9.0
+
+# ML/Detection
+ultralytics>=8.1.0
+torch>=2.2.0
+torchvision>=0.17.0
+
+# Database
+sqlalchemy>=2.0.0
+
+# API
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.6.0
+
+# Utilities
+python-dotenv>=1.0.0
+pillow>=10.2.0
+numpy>=1.26.0
