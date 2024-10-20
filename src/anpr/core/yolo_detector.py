@@ -204,3 +204,74 @@ class YOLODetector:
         logger.info(f"GPU memory check passed: {gpu_memory_gb:.2f}GB available, "
                    f"{required_memory_gb}GB required for {self.model_path}")
         return True
+    
+    def detect(
+        self,
+        image: Union[np.ndarray, str],
+        conf_threshold: Optional[float] = None,
+        iou_threshold: Optional[float] = None
+    ) -> List[dict]:
+        """Run detection on image, returning list of {bbox, confidence, class_id, class_name}."""
+        if not self._model_loaded:
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+        
+        # Use provided thresholds or defaults
+        conf_thresh = conf_threshold if conf_threshold is not None else self.confidence_threshold
+        iou_thresh = iou_threshold if iou_threshold is not None else self.iou_threshold
+        
+        try:
+            # Validate input image
+            if isinstance(image, str):
+                if not Path(image).exists():
+                    raise FileNotFoundError(f"Image file does not exist: {image}")
+                # Load image to validate
+                image = cv2.imread(image)
+                if image is None:
+                    raise ValueError(f"Could not load image from path: {image}")
+            elif not isinstance(image, np.ndarray):
+                raise TypeError(f"Image must be numpy array or string path, got {type(image)}")
+            
+            # Validate image dimensions
+            if len(image.shape) != 3 or image.shape[2] != 3:
+                raise ValueError(f"Expected RGB image, got shape: {image.shape}")
+            
+            # Run inference
+            results = self.model(
+                image,
+                imgsz=self.input_size,
+                conf=conf_thresh,
+                iou=iou_thresh,
+                half=self.fp16 if 'cuda' in self.device else False,
+                verbose=False,
+                device=self.device
+            )
+            
+            detections = []
+            for result in results:
+                boxes = result.boxes
+                if boxes is not None:
+                    for box in boxes:
+                        # Extract bounding box coordinates
+                        xyxy = box.xyxy[0].cpu().numpy()  # Format: [x1, y1, x2, y2]
+                        conf = float(box.conf[0].cpu().numpy())
+                        cls = int(box.cls[0].cpu().numpy())
+                        
+                        detection = {
+                            'bbox': xyxy.tolist(),
+                            'confidence': conf,
+                            'class_id': cls,
+                            'class_name': result.names[cls] if hasattr(result, 'names') and result.names else f'class_{cls}'
+                        }
+                        detections.append(detection)
+            
+            return detections
+            
+        except MemoryError as e:
+            logger.error(f"GPU memory error during detection: {e}")
+            # Clear cache and try again on CPU
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            raise
+        except Exception as e:
+            logger.error(f"Detection failed: {e}")
+            raise
