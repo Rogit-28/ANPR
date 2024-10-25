@@ -110,3 +110,112 @@ class NightVisionProcessor:
         except Exception as e:
             logger.error(f"Error calculating brightness metrics: {e}")
             return {}
+    
+    def apply_clahe(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Apply CLAHE (Contrast Limited Adaptive Histogram Equalization).
+        
+        Args:
+            frame: Input image frame
+            
+        Returns:
+            Frame with CLAHE applied
+        """
+        try:
+            if len(frame.shape) == 3:
+                # Apply CLAHE to each channel separately for color images
+                lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+                l_channel, a, b = cv2.split(lab)
+                
+                # Apply CLAHE to the L channel
+                l_channel = self.clahe.apply(l_channel)
+                
+                # Merge channels back
+                lab = cv2.merge((l_channel, a, b))
+                enhanced_frame = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+            else:
+                # Apply CLAHE to grayscale image
+                enhanced_frame = self.clahe.apply(frame)
+            
+            return enhanced_frame
+            
+        except Exception as e:
+            logger.error(f"Error applying CLAHE: {e}")
+            return frame
+    
+    def apply_bilateral_filter(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Apply bilateral filtering to preserve edges while smoothing noise.
+        
+        Args:
+            frame: Input image frame
+            
+        Returns:
+            Frame with bilateral filter applied
+        """
+        try:
+            filtered_frame = cv2.bilateralFilter(
+                frame,
+                self.bilateral_d,
+                self.bilateral_sigma_color,
+                self.bilateral_sigma_space
+            )
+            return filtered_frame
+            
+        except Exception as e:
+            logger.error(f"Error applying bilateral filter: {e}")
+            return frame
+    
+    def calculate_dynamic_gamma(self, frame: np.ndarray) -> float:
+        """
+        Calculate dynamic gamma based on mean brightness.
+        
+        Args:
+            frame: Input image frame
+            
+        Returns:
+            Calculated gamma value in range 1.5-2.5
+        """
+        try:
+            if len(frame.shape) == 3:
+                gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            else:
+                gray_frame = frame.copy()
+            
+            mean_brightness = np.mean(gray_frame)
+            
+            # Map mean brightness (0-255) to gamma range (1.5-2.5)
+            # Lower brightness -> higher gamma (brighter image)
+            gamma = 2.5 - ((mean_brightness / 255.0) * 1.0)
+            
+            # Clamp gamma to the required range
+            gamma = max(1.5, min(2.5, gamma))
+            
+            return gamma
+            
+        except Exception as e:
+            logger.error(f"Error calculating dynamic gamma: {e}")
+            return 2.0 # Default gamma value
+    
+    def apply_gamma_correction(self, frame: np.ndarray, gamma: float) -> np.ndarray:
+        """
+        Apply gamma correction to the frame.
+        
+        Args:
+            frame: Input image frame
+            gamma: Gamma value to apply
+            
+        Returns:
+            Frame with gamma correction applied
+        """
+        try:
+            # Build lookup table for gamma correction
+            inv_gamma = 1.0 / gamma
+            table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
+            
+            corrected_frame = cv2.LUT(frame, table)
+            return corrected_frame
+            
+        except Exception as e:
+            logger.error(f"Error applying gamma correction: {e}")
+            return frame
