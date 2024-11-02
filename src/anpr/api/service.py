@@ -313,3 +313,95 @@ async def http_exception_handler(request, exc):
         status_code=exc.status_code,
         content=error_response.model_dump()
     )
+
+
+# ============================================
+# Detection Endpoints
+# ============================================
+
+@app.post("/api/v1/detect/image")
+async def detect_image(image: UploadFile = File(...)):
+    """
+    Process a single image for license plate detection.
+    
+    Accepts image files (jpg, png, bmp, webp). Returns detected plates with OCR results.
+    """
+    try:
+        # Validate file type
+        allowed_types = {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
+        filename = image.filename or "image.jpg"
+        ext = Path(filename).suffix.lower()
+        
+        if ext not in allowed_types:
+            handle_api_error(
+                "INVALID_FILE_TYPE",
+                f"Image type {ext} not supported. Allowed: {', '.join(allowed_types)}",
+                status_code=400
+            )
+        
+        # Read image content
+        content = await image.read()
+        
+        # Decode image
+        nparr = np.frombuffer(content, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            handle_api_error("INVALID_IMAGE", "Could not decode image", status_code=400)
+        
+        h, w = frame.shape[:2]
+        
+        # TODO: Implement actual detection pipeline
+        # For now, return placeholder response
+        return SuccessResponse(
+            data={
+                "detections": [],
+                "image_width": w,
+                "image_height": h,
+                "processing_time_ms": 0
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_api_error("IMAGE_DETECT_ERROR", str(e))
+
+
+@app.post("/api/v1/detect/video")
+async def detect_video(video: UploadFile = File(...)):
+    """
+    Process a video file for license plate detection.
+    
+    Accepts video files (mp4, avi, mov, mkv). Returns job ID for tracking.
+    """
+    try:
+        # Validate file type
+        allowed_types = {'.mp4', '.avi', '.mov', '.mkv', '.webm'}
+        filename = video.filename or "video.mp4"
+        ext = Path(filename).suffix.lower()
+        
+        if ext not in allowed_types:
+            handle_api_error(
+                "INVALID_FILE_TYPE",
+                f"Video type {ext} not supported. Allowed: {', '.join(allowed_types)}",
+                status_code=400
+            )
+        
+        # Generate job ID
+        job_id = str(uuid.uuid4())
+        
+        # TODO: Save video and queue for processing
+        
+        return SuccessResponse(
+            data={
+                "job_id": job_id,
+                "status": "queued",
+                "message": f"Video {filename} queued for processing"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_api_error("VIDEO_DETECT_ERROR", str(e))
