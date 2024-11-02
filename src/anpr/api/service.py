@@ -34,7 +34,8 @@ except ImportError:
     PYNVML_AVAILABLE = False
 
 from .models import (
-    SuccessResponse, ErrorResponse, HealthResponse, StatsResponse
+    SuccessResponse, ErrorResponse, HealthResponse, StatsResponse,
+    ConfigResponse, SystemInfoResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -173,7 +174,142 @@ async def health_check():
 @app.get("/api/config")
 async def get_config_endpoint():
     """Get current configuration."""
-    return {
-        "status": "success",
-        "message": "Configuration endpoint - not yet implemented"
-    }
+    from .models import ConfigResponse
+    
+    # Return default configuration values
+    return ConfigResponse(
+        alerts_enabled=True,
+        desktop_notifications=False,
+        yolo_confidence=0.25,
+        yolo_weights_path="models/yolov8n.pt",
+        min_ocr_confidence=0.5,
+        plate_validation_enabled=True
+    )
+
+
+@app.get("/api/stats", response_model=StatsResponse)
+async def get_stats():
+    """Get system statistics."""
+    from ..database.utils import get_detection_stats
+    
+    stats = {"total_detections": 0, "average_confidence": 0.0}
+    
+    if db_manager:
+        with db_manager.get_session() as session:
+            stats = get_detection_stats(session)
+    
+    return StatsResponse(
+        total_detections=stats.get('total_detections', 0),
+        average_confidence=stats.get('average_confidence', 0.0),
+        earliest_detection=stats.get('earliest_detection'),
+        latest_detection=stats.get('latest_detection'),
+        pipeline_stats=None,
+        memory_usage=None
+    )
+
+
+@app.get("/api/system-info")
+async def get_system_info():
+    """Get extended system information."""
+    import sys
+    from .models import SystemInfoResponse
+    
+    global start_time
+    
+    uptime_seconds = time.time() - start_time if start_time else 0
+    
+    cuda_available = False
+    cuda_version = None
+    gpu_name = None
+    gpu_memory_total = None
+    gpu_memory_used = None
+    
+    if TORCH_AVAILABLE and torch.cuda.is_available():
+        cuda_available = True
+        cuda_version = torch.version.cuda
+        gpu_name = torch.cuda.get_device_name(0)
+        
+        # Get GPU memory info
+        if PYNVML_AVAILABLE:
+            try:
+                pynvml.nvmlInit()
+                handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+                info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+                gpu_memory_total = f"{info.total / (1024**3):.2f} GB"
+                gpu_memory_used = f"{info.used / (1024**3):.2f} GB"
+                pynvml.nvmlShutdown()
+            except Exception:
+                pass
+    
+    return SystemInfoResponse(
+        api_version="1.0.0",
+        python_version=sys.version,
+        cuda_available=cuda_available,
+        cuda_version=cuda_version,
+        gpu_name=gpu_name,
+        gpu_memory_total=gpu_memory_total,
+        gpu_memory_used=gpu_memory_used,
+        gpu_utilization=None,
+        database_path="data/anpr.db",
+        config_file_path="config.yaml",
+        uptime=format_uptime(uptime_seconds),
+        uptime_seconds=uptime_seconds,
+        onnx_providers=[]
+    )
+
+
+def handle_api_error(error_code: str, message: str, details: Optional[Dict[str, Any]] = None, status_code: int = 400):
+    """Helper function to create standardized error responses."""
+    logger.error(f"API Error - {error_code}: {message}, Details: {details}")
+    raise HTTPException(
+        status_code=status_code,
+        detail=ErrorResponse(
+            error_code=error_code,
+            message=message,
+            details=details
+        ).model_dump()
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler for unhandled exceptions."""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    
+    return JSONResponse(
+        status_code=500,
+        content=ErrorResponse(
+            error_code="INTERNAL_ERROR",
+            message="An internal server error occurred",
+            details={
+                "error_type": type(exc).__name__,
+                "request_url": str(request.url),
+                "request_method": request.method
+            }
+        ).model_dump()
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    """HTTP exception handler."""
+    logger.warning(f"HTTP Exception: {exc.status_code} - {exc.detail}")
+    
+    # If detail is already an ErrorResponse, return it as is
+    if isinstance(exc.detail, dict) and 'error_code' in exc.detail:
+        error_response = ErrorResponse(**exc.detail)
+    else:
+        error_response = ErrorResponse(
+            error_code="HTTP_ERROR",
+            message=str(exc.detail) if exc.detail else "HTTP Error occurred",
+            details={
+                "status_code": exc.status_code,
+                "request_url": str(request.url),
+                "request_method": request.method
+            }
+        )
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response.model_dump()
+    )
