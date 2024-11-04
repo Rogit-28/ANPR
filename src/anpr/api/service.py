@@ -640,3 +640,145 @@ async def get_video_status(job_id: str):
         raise
     except Exception as e:
         handle_api_error("VIDEO_STATUS_ERROR", str(e))
+
+
+# ============================================
+# Job Management Endpoints
+# ============================================
+
+@app.get("/api/v1/jobs")
+async def list_jobs(limit: int = 10, offset: int = 0):
+    """
+    List all processing jobs.
+    
+    Returns paginated list of jobs, ordered by creation time (newest first).
+    """
+    try:
+        # Get jobs from running_jobs dict for now
+        jobs_list = list(running_jobs.items())
+        
+        # Sort by start_time descending
+        jobs_list.sort(key=lambda x: x[1].get("start_time", ""), reverse=True)
+        
+        # Apply pagination
+        total = len(jobs_list)
+        jobs_list = jobs_list[offset:offset + limit]
+        
+        job_responses = []
+        for job_id, job_info in jobs_list:
+            job_responses.append({
+                "id": job_id,
+                "status": job_info.get("status"),
+                "type": job_info.get("type"),
+                "start_time": job_info.get("start_time"),
+                "filename": job_info.get("filename"),
+                "progress": job_info.get("progress", 0),
+                "camera_id": job_info.get("camera_id")
+            })
+        
+        return SuccessResponse(
+            data={
+                "total": total,
+                "jobs": job_responses,
+                "limit": limit,
+                "offset": offset
+            }
+        )
+        
+    except Exception as e:
+        handle_api_error("JOBS_LIST_ERROR", str(e))
+
+
+@app.get("/api/v1/jobs/{job_id}")
+async def get_job(job_id: str):
+    """
+    Get details of a specific job.
+    """
+    try:
+        if job_id not in running_jobs:
+            handle_api_error("JOB_NOT_FOUND", f"Job {job_id} not found", status_code=404)
+        
+        job_info = running_jobs[job_id]
+        
+        return SuccessResponse(
+            data={
+                "id": job_id,
+                "status": job_info.get("status"),
+                "type": job_info.get("type"),
+                "start_time": job_info.get("start_time"),
+                "filename": job_info.get("filename"),
+                "progress": job_info.get("progress", 0),
+                "camera_id": job_info.get("camera_id"),
+                "error": job_info.get("error")
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_api_error("JOB_GET_ERROR", str(e))
+
+
+@app.post("/api/v1/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str):
+    """
+    Cancel a pending or processing job.
+    """
+    try:
+        if job_id not in running_jobs:
+            handle_api_error("JOB_NOT_FOUND", f"Job {job_id} not found", status_code=404)
+        
+        job_info = running_jobs[job_id]
+        current_status = job_info.get("status")
+        
+        # Can only cancel pending or processing jobs
+        if current_status in ["completed", "cancelled", "error"]:
+            handle_api_error(
+                "CANCEL_FAILED",
+                f"Cannot cancel job with status: {current_status}",
+                status_code=400
+            )
+        
+        # Update status
+        running_jobs[job_id]["status"] = "cancelled"
+        
+        return SuccessResponse(
+            data={
+                "job_id": job_id,
+                "status": "cancelled",
+                "message": "Job cancelled successfully"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_api_error("CANCEL_ERROR", str(e))
+
+
+@app.delete("/api/v1/jobs/{job_id}")
+async def delete_job(job_id: str):
+    """
+    Delete a job and all associated files.
+    """
+    try:
+        if job_id not in running_jobs:
+            handle_api_error("JOB_NOT_FOUND", f"Job {job_id} not found", status_code=404)
+        
+        # Remove from tracking
+        del running_jobs[job_id]
+        
+        # TODO: Delete associated files
+        
+        return SuccessResponse(
+            data={
+                "job_id": job_id,
+                "status": "deleted",
+                "message": "Job deleted successfully"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_api_error("DELETE_ERROR", str(e))
