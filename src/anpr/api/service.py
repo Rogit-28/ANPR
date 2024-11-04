@@ -521,3 +521,122 @@ async def get_recent_plates(limit: int = 10):
         raise
     except Exception as e:
         handle_api_error("RECENT_PLATES_ERROR", str(e))
+
+
+# ============================================
+# Video Processing Endpoints
+# ============================================
+
+@app.post("/api/v1/upload")
+async def upload_video(
+    file: UploadFile = File(...),
+    camera_id: Optional[str] = Form(None)
+):
+    """
+    Upload a video file for processing.
+    
+    Accepts video files up to 500MB. Supported formats: mp4, avi, mov, mkv, webm.
+    Returns a job ID that can be used to track processing status.
+    """
+    try:
+        # Sanitize and validate filename
+        raw_filename = file.filename or "upload.mp4"
+        filename = sanitize_filename(raw_filename)
+        ext = Path(filename).suffix.lower()
+        
+        # Ensure extension is preserved after sanitization
+        if not ext:
+            ext = Path(raw_filename).suffix.lower()
+            filename = filename + ext
+        
+        allowed_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.webm', '.m4v'}
+        
+        if ext not in allowed_extensions:
+            handle_api_error(
+                "INVALID_FILE_TYPE",
+                f"File type {ext} not supported. Allowed: {', '.join(allowed_extensions)}",
+                status_code=400
+            )
+        
+        # Read file content in chunks with size tracking
+        content_chunks = []
+        total_size = 0
+        
+        while chunk := await file.read(UPLOAD_CHUNK_SIZE):
+            total_size += len(chunk)
+            if total_size > MAX_UPLOAD_SIZE:
+                handle_api_error(
+                    "FILE_TOO_LARGE",
+                    f"File exceeds maximum 500MB",
+                    status_code=400
+                )
+            content_chunks.append(chunk)
+        
+        content = b''.join(content_chunks)
+        size_mb = total_size / (1024 * 1024)
+        
+        logger.info(f"Received upload: {filename} ({size_mb:.1f}MB)")
+        
+        # Generate job ID
+        job_id = str(uuid.uuid4())
+        
+        # Track the job
+        running_jobs[job_id] = {
+            "type": "video_upload",
+            "status": "queued",
+            "start_time": datetime.now().isoformat(),
+            "filename": filename,
+            "size_mb": size_mb,
+            "camera_id": camera_id
+        }
+        
+        # TODO: Save file and queue for processing
+        
+        return SuccessResponse(
+            data={
+                "job_id": job_id,
+                "status": "queued",
+                "message": f"Video uploaded and queued for processing",
+                "filename": filename
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_api_error("UPLOAD_ERROR", str(e))
+
+
+@app.get("/api/v1/video/status/{job_id}")
+async def get_video_status(job_id: str):
+    """
+    Get video processing status.
+    
+    Returns the current status of a video processing job.
+    """
+    try:
+        # Check if job exists in our tracking
+        if job_id in running_jobs:
+            job_info = running_jobs[job_id]
+            return SuccessResponse(
+                data={
+                    "job_id": job_id,
+                    "status": job_info.get("status", "unknown"),
+                    "type": job_info.get("type"),
+                    "start_time": job_info.get("start_time"),
+                    "filename": job_info.get("filename"),
+                    "progress": job_info.get("progress", 0),
+                    "error": job_info.get("error")
+                }
+            )
+        else:
+            handle_api_error(
+                "JOB_NOT_FOUND",
+                f"Job {job_id} not found",
+                status_code=404
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_api_error("VIDEO_STATUS_ERROR", str(e))
