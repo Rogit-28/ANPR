@@ -405,3 +405,119 @@ async def detect_video(video: UploadFile = File(...)):
         raise
     except Exception as e:
         handle_api_error("VIDEO_DETECT_ERROR", str(e))
+
+
+# ============================================
+# Database Query Endpoints
+# ============================================
+
+@app.get("/api/v1/plates/search")
+async def search_plates(
+    plate_text: Optional[str] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    min_confidence: Optional[float] = None,
+    limit: int = 100,
+    offset: int = 0
+):
+    """
+    Search plate detections with filters.
+    
+    Args:
+        plate_text: Filter by plate text (partial match)
+        start_time: Filter by start time (ISO format)
+        end_time: Filter by end time (ISO format)
+        min_confidence: Minimum confidence threshold (0-1)
+        limit: Maximum results to return
+        offset: Pagination offset
+    """
+    try:
+        from ..database.utils import query_detections
+        
+        if not db_manager:
+            handle_api_error("DB_NOT_INITIALIZED", "Database not initialized", status_code=500)
+        
+        with db_manager.get_session() as session:
+            detections = query_detections(
+                db_session=session,
+                plate_text=plate_text,
+                start_time=start_time,
+                end_time=end_time,
+                min_confidence=min_confidence,
+                limit=limit,
+                offset=offset
+            )
+            
+            results = []
+            for det in detections:
+                results.append({
+                    "id": det.id,
+                    "plate_text": det.plate_text,
+                    "confidence": det.confidence,
+                    "timestamp": det.timestamp,
+                    "source_type": det.source_type,
+                    "source_identifier": det.source_identifier,
+                    "snapshot_path": det.snapshot_path
+                })
+        
+        return SuccessResponse(
+            data={
+                "total": len(results),
+                "detections": results,
+                "limit": limit,
+                "offset": offset
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_api_error("SEARCH_ERROR", str(e))
+
+
+@app.get("/api/v1/plates/recent")
+async def get_recent_plates(limit: int = 10):
+    """
+    Get the most recent plate detections.
+    
+    Args:
+        limit: Number of recent detections to return (max 100)
+    """
+    try:
+        from ..database.utils import query_detections
+        
+        if not db_manager:
+            handle_api_error("DB_NOT_INITIALIZED", "Database not initialized", status_code=500)
+        
+        # Clamp limit
+        limit = min(max(1, limit), 100)
+        
+        with db_manager.get_session() as session:
+            detections = query_detections(
+                db_session=session,
+                limit=limit,
+                offset=0
+            )
+            
+            results = []
+            for det in detections:
+                results.append({
+                    "id": det.id,
+                    "plate_text": det.plate_text,
+                    "confidence": det.confidence,
+                    "timestamp": det.timestamp,
+                    "source_type": det.source_type,
+                    "source_identifier": det.source_identifier
+                })
+        
+        return SuccessResponse(
+            data={
+                "count": len(results),
+                "detections": results
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        handle_api_error("RECENT_PLATES_ERROR", str(e))
