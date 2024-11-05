@@ -782,3 +782,45 @@ async def delete_job(job_id: str):
         raise
     except Exception as e:
         handle_api_error("DELETE_ERROR", str(e))
+
+
+# ============================================
+# Static File Serving
+# ============================================
+
+# Determine the static files directory
+static_dir = Path(__file__).parent.parent.parent.parent / "static"
+dist_dir = static_dir / "dist"
+
+# Use dist directory if it exists (production build), otherwise use static root
+frontend_dir = dist_dir if dist_dir.exists() else static_dir
+
+if frontend_dir.exists():
+    # Mount the assets folder for JS/CSS bundles
+    assets_dir = frontend_dir / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+    
+    # Also mount the static folder for other static files (images, etc.)
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+
+@app.get("/")
+async def serve_frontend():
+    """Serve the frontend application."""
+    # Try dist/index.html first (production build)
+    index_path = dist_dir / "index.html"
+    if not index_path.exists():
+        # Fall back to static/index.html (development)
+        index_path = static_dir / "index.html"
+    
+    if index_path.exists():
+        return FileResponse(index_path)
+    else:
+        return SuccessResponse(
+            data={
+                "message": "ANPR API is running",
+                "docs": "/api/v1/docs",
+                "health": "/api/health"
+            }
+        )
