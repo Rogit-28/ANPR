@@ -824,3 +824,123 @@ async def serve_frontend():
                 "health": "/api/health"
             }
         )
+
+
+# ============================================
+# WebSocket for Real-time Updates
+# ============================================
+
+# SSE Alert Queue - stores alerts to be pushed to connected clients
+alert_queues: List[asyncio.Queue] = []
+alert_queues_lock = asyncio.Lock()
+sse_shutdown_event = asyncio.Event()
+
+
+async def broadcast_alert(alert_data: Dict[str, Any]):
+    """
+    Broadcast an alert to all connected SSE clients.
+    
+    Args:
+        alert_data: Alert data dictionary to send to clients
+    """
+    async with alert_queues_lock:
+        client_count = len(alert_queues)
+        if not client_count:
+            logger.debug("No SSE clients connected for alert broadcast")
+            return
+        
+        logger.info(f"Broadcasting alert to {client_count} SSE clients")
+        
+        for queue in alert_queues:
+            try:
+                queue.put_nowait(alert_data)
+            except asyncio.QueueFull:
+                logger.warning("SSE client queue full, dropping alert")
+            except Exception as e:
+                logger.debug(f"Failed to queue alert for SSE client: {e}")
+
+
+async def alert_event_generator(queue: asyncio.Queue):
+    """
+    Generator that yields SSE events from the alert queue.
+    """
+    try:
+        # Send initial connection event
+        client_count = len(alert_queues)
+        yield f"event: connected\ndata: {json.dumps({'message': 'Connected to alert stream', 'clients': client_count})}\n\n"
+        
+        while not sse_shutdown_event.is_set():
+            try:
+                alert_data = await asyncio.wait_for(queue.get(), timeout=15.0)
+                
+                if isinstance(alert_data, dict) and alert_data.get("__shutdown__"):
+                    yield f"event: shutdown\ndata: {json.dumps({'message': 'Server shutting down'})}\n\n"
+                    break
+                
+                event_data = json.dumps(alert_data)
+                yield f"event: alert\ndata: {event_data}\n\n"
+                
+            except asyncio.TimeoutError:
+                if sse_shutdown_event.is_set():
+                    break
+                yield ": keepalive\n\n"
+                
+    except GeneratorExit:
+        logger.debug("SSE client disconnected")
+    except asyncio.CancelledError:
+        logger.debug("SSE generator cancelled")
+    except Exception as e:
+        logger.error(f"SSE generator error: {e}")
+
+
+@app.get("/api/v1/alerts/stream")
+async def alert_stream(request: Request):
+    """
+    Server-Sent Events (SSE) endpoint for real-time alert notifications.
+    
+    Connect to this endpoint to receive instant push notifications when
+    alerts are triggered (watchlist matches, new plates, etc.)
+    """
+    queue = asyncio.Queue(maxsize=100)
+    
+    async with alert_queues_lock:
+        alert_queues.append(queue)
+        logger.info(f"SSE client connected. Total clients: {len(alert_queues)}")
+    
+    async def event_generator_with_cleanup():
+        try:
+            async for event in alert_event_generator(queue):
+                yield event
+        finally:
+            async with alert_queues_lock:
+                if queue in alert_queues:
+                    alert_queues.remove(queue)
+                    logger.info(f"SSE client removed. Remaining clients: {len(alert_queues)}")
+    
+    return StreamingResponse(
+        event_generator_with_cleanup(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
+@app.get("/api/v1/alerts/stream/status")
+async def get_sse_status():
+    """
+    Get the status of SSE alert connections.
+    """
+    async with alert_queues_lock:
+        client_count = len(alert_queues)
+    
+    return SuccessResponse(
+        data={
+            "connected_clients": client_count,
+            "endpoint": "/api/v1/alerts/stream"
+        }
+    )
