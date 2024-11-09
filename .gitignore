@@ -16,3 +16,66 @@ env/
 *.swp
 *.swo
 *~
+
+# Model weights (downloaded on first run)
+*.pt
+*.pth
+*.onnx
+models/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*__pycache__
+*.pyc
+
+# Test artifacts
+tests/data/
+htmlcov/
+.coverage
+coverage.xml
+*.mp4
+*.png
+*.webp
+
+# OS files
+.DS_Store
+Thumbs.db
+nul
+
+# Local config (users should copy from template)
+config.yaml
+
+# Build/dist
+dist/
+build/
+*.egg-info/
+
+# Snapshots and output
+snapshots/
+output/
+detections/
+
+# Error logs
+*_error_logs.txt
+*_error_logs.log
+
+# Development docs (local only)
+AGENTS.md
+SPEC.md
+
+# Sample videos (too large for GitHub, download separately)
+data/samples/videos/
+
+node_modules/
