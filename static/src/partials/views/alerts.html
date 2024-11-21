@@ -1,0 +1,294 @@
+        <div x-show="$store.app.currentView === 'alerts'" x-cloak>
+          <div x-data="alertsView" x-init="init()">
+            <!-- Alert Controls Card -->
+            <div class="card mb-6">
+              <div class="card-body">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                  <div class="flex items-center gap-4">
+                    <div class="icon-container" :class="$store.alerts.enabled ? 'icon-container-success' : 'icon-container-danger'">
+                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 class="font-semibold text-gray-900 dark:text-white">Alert System</h2>
+                      <p class="text-sm text-gray-500">Real-time notifications for watchlist matches</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <!-- SSE Connection Status -->
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
+                         :class="$store.alerts.connected ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'">
+                      <span class="relative flex h-2 w-2">
+                        <span x-show="$store.alerts.connected" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2" :class="$store.alerts.connected ? 'bg-green-500' : 'bg-red-500'"></span>
+                      </span>
+                      <span x-text="$store.alerts.connected ? 'Live' : ($store.alerts.serverShutdown ? 'Reconnecting...' : 'Disconnected')"></span>
+                    </div>
+                    <!-- Toggle -->
+                    <button @click="toggleAlerts()" 
+                            class="toggle" 
+                            :class="$store.alerts.enabled ? 'toggle-enabled' : 'toggle-disabled'">
+                      <span class="toggle-knob"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Alert Stats Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" x-show="$store.alerts.stats">
+              <div class="stat-card stat-card-danger">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Total Watchlist Alerts</p>
+                    <p class="text-3xl font-bold text-red-600 dark:text-red-400 mt-1" x-text="$store.alerts.stats?.total_alerts || 0"></p>
+                  </div>
+                  <div class="icon-container icon-container-danger">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="stat-card stat-card-warning">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Unacknowledged</p>
+                    <p class="text-3xl font-bold text-amber-600 dark:text-amber-400 mt-1" x-text="$store.alerts.stats?.unacknowledged || 0"></p>
+                  </div>
+                  <div class="icon-container icon-container-warning">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="stat-card stat-card-primary">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Today</p>
+                    <p class="text-3xl font-bold text-gray-900 dark:text-white mt-1" x-text="$store.alerts.stats?.today || 0"></p>
+                  </div>
+                  <div class="icon-container icon-container-primary">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Alert History -->
+            <div class="card">
+              <div class="card-header flex-wrap gap-4">
+                <div class="flex items-center gap-3">
+                  <div class="icon-container icon-container-danger">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 class="font-semibold text-gray-900 dark:text-white">Watchlist Alerts</h2>
+                    <p class="text-xs text-gray-500">Plates from your watchlist that were detected</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Unacknowledged badge -->
+                  <span x-show="unacknowledgedCount > 0" class="badge badge-danger animate-pulse">
+                    <span x-text="unacknowledgedCount"></span> unread
+                  </span>
+                  <!-- Acknowledge All button -->
+                  <button x-show="unacknowledgedCount > 0" 
+                          @click="acknowledgeAll()"
+                          class="btn btn-sm bg-green-600 hover:bg-green-700 text-white">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Ack All
+                  </button>
+                  <!-- Custom Status Filter Dropdown -->
+                  <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" 
+                            @click.outside="open = false"
+                            class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors min-w-[140px]">
+                      <span class="flex items-center gap-2 flex-1">
+                        <template x-if="statusFilter === 'all'">
+                          <span class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                            <span class="text-gray-700 dark:text-gray-200">All Alerts</span>
+                          </span>
+                        </template>
+                        <template x-if="statusFilter === 'unacknowledged'">
+                          <span class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                            <span class="text-red-600 dark:text-red-400">Unread</span>
+                          </span>
+                        </template>
+                        <template x-if="statusFilter === 'acknowledged'">
+                          <span class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                            <span class="text-green-600 dark:text-green-400">Acknowledged</span>
+                          </span>
+                        </template>
+                      </span>
+                      <svg class="w-4 h-4 text-gray-500 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                      </svg>
+                    </button>
+                    <!-- Dropdown Menu -->
+                    <div x-show="open" 
+                         x-transition:enter="transition ease-out duration-100"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         x-transition:leave="transition ease-in duration-75"
+                         x-transition:leave-start="opacity-100 scale-100"
+                         x-transition:leave-end="opacity-0 scale-95"
+                         class="absolute right-0 mt-2 w-48 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-xl z-50 overflow-hidden">
+                      <div class="py-1">
+                        <button @click="statusFilter = 'all'; open = false" 
+                                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                :class="statusFilter === 'all' ? 'bg-gray-50 dark:bg-gray-700' : ''">
+                          <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                          <span class="text-gray-700 dark:text-gray-200">All Alerts</span>
+                          <svg x-show="statusFilter === 'all'" class="w-4 h-4 ml-auto text-primary-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                          </svg>
+                        </button>
+                        <button @click="statusFilter = 'unacknowledged'; open = false" 
+                                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                :class="statusFilter === 'unacknowledged' ? 'bg-red-50 dark:bg-red-900/20' : ''">
+                          <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                          <span class="text-gray-700 dark:text-gray-200">Unread</span>
+                          <svg x-show="statusFilter === 'unacknowledged'" class="w-4 h-4 ml-auto text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                          </svg>
+                        </button>
+                        <button @click="statusFilter = 'acknowledged'; open = false" 
+                                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                :class="statusFilter === 'acknowledged' ? 'bg-green-50 dark:bg-green-900/20' : ''">
+                          <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                          <span class="text-gray-700 dark:text-gray-200">Acknowledged</span>
+                          <svg x-show="statusFilter === 'acknowledged'" class="w-4 h-4 ml-auto text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body p-0 max-h-[600px] overflow-y-auto scrollbar-thin">
+                <!-- Empty State -->
+                <div x-show="filteredHistory.length === 0" class="empty-state">
+                  <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  </svg>
+                  <p class="empty-state-title">No watchlist alerts</p>
+                  <p class="empty-state-description">Alerts will appear here when plates from your watchlist are detected.</p>
+                </div>
+                
+                <!-- Alert List -->
+                <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                  <template x-for="alert in filteredHistory" :key="alert.id">
+                    <div class="alert-item m-4"
+                         :class="{
+                           'alert-watchlist': !alert.acknowledged,
+                           'alert-acknowledged': alert.acknowledged
+                         }">
+                      <!-- Icon -->
+                      <div class="flex-shrink-0">
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center"
+                             :class="{
+                               'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400': !alert.acknowledged,
+                               'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400': alert.acknowledged
+                             }">
+                          <svg x-show="alert.acknowledged" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                          </svg>
+                          <svg x-show="!alert.acknowledged" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                          </svg>
+                        </div>
+                      </div>
+                      
+                      <!-- Content -->
+                      <div class="flex-1 min-w-0">
+                        <!-- Header row -->
+                        <div class="flex items-center justify-between mb-2">
+                          <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-bold tracking-wide" 
+                                  :class="alert.acknowledged ? 'text-gray-500 dark:text-gray-400' : 'text-red-600 dark:text-red-400'">
+                              WATCHLIST MATCH
+                            </span>
+                            <span x-show="alert.acknowledged" 
+                                  class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400">
+                              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                              </svg>
+                              Acknowledged
+                            </span>
+                          </div>
+                          <span class="text-xs text-gray-500 dark:text-gray-400 font-medium" x-text="formatTime(alert.timestamp)"></span>
+                        </div>
+                        
+                        <!-- Plate and metadata row -->
+                        <div class="flex items-center gap-4 flex-wrap">
+                          <span x-show="alert.plate" 
+                                class="plate-text text-xs" 
+                                :class="{'opacity-70': alert.acknowledged}"
+                                x-text="alert.plate"></span>
+                          
+                          <!-- Confidence badge -->
+                          <span x-show="alert.confidence" 
+                                class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg"
+                                :class="{
+                                  'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400': alert.confidence >= 0.9,
+                                  'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400': alert.confidence >= 0.7 && alert.confidence < 0.9,
+                                  'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400': alert.confidence < 0.7
+                                }">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span x-text="Math.round(alert.confidence * 100) + '%'"></span>
+                          </span>
+                          
+                          <!-- Camera badge -->
+                          <span x-show="alert.camera" 
+                                class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            <span x-text="alert.camera"></span>
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <!-- Action buttons -->
+                      <div class="flex-shrink-0 flex items-center gap-1">
+                        <button x-show="!alert.acknowledged"
+                                @click="acknowledgeAlert(alert.id)"
+                                class="p-2 rounded-lg text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                                title="Acknowledge">
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                          </svg>
+                        </button>
+                        <button @click="deleteAlert(alert.id)"
+                                class="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                title="Delete">
+                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+

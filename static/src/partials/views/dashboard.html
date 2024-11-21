@@ -1,0 +1,390 @@
+        <div x-show="$store.app.currentView === 'dashboard'" x-cloak>
+          <div x-data="dashboardView" x-init="init()">
+            <!-- Stats & Quick Actions Grid (2x4 layout) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+              <!-- System Status Card -->
+              <div class="glass-stat group cursor-pointer" @click="$store.app.setView('settings')">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="w-10 h-10 rounded-xl flex items-center justify-center" :class="health.status === 'healthy' ? 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400'">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </div>
+                  <div class="status-dot" :class="health.status === 'healthy' ? 'status-online' : 'status-offline'"></div>
+                </div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">System Status</p>
+                <p class="text-lg font-bold mt-1" :class="health.status === 'healthy' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'" x-text="health.status === 'healthy' ? 'Operational' : 'Issues Detected'"></p>
+              </div>
+
+              <!-- Today's Detections Card -->
+              <div class="glass-stat group cursor-pointer" @click="$store.app.navigateToResults({ today: true })">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="w-10 h-10 rounded-xl bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </div>
+                  <svg class="w-4 h-4 text-gray-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Today's Detections</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white mt-1" x-text="$store.app.stats.today_detections || 0"></p>
+              </div>
+
+              <!-- Active Alerts Card -->
+              <div class="glass-stat group cursor-pointer" @click="$store.app.setView('alerts')">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                  </div>
+                  <span class="badge badge-warning text-[10px]" x-show="$store.alerts.stats?.today > 0">NEW</span>
+                </div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Active Alerts</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white mt-1" x-text="$store.alerts.stats?.today || 0"></p>
+              </div>
+
+              <!-- Active Jobs Card -->
+              <div class="glass-stat group cursor-pointer" @click="$store.app.setView('upload')">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                  </div>
+                  <div x-show="$store.app.activeJobs.length > 0" class="text-xs text-primary-600 dark:text-primary-400 font-medium" x-text="$store.app.activeJobs[0]?.progress ? $store.app.activeJobs[0].progress + '%' : ''"></div>
+                </div>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Active Jobs</p>
+                <p class="text-2xl font-bold text-gray-900 dark:text-white mt-1" x-text="$store.app.activeJobs.length"></p>
+                <div x-show="$store.app.activeJobs.length > 0" class="mt-2">
+                  <div class="progress h-1">
+                    <div class="progress-bar progress-bar-animated" :style="`width: ${$store.app.activeJobs[0]?.progress || 0}%`"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Action: Upload Video -->
+              <div class="glass-action group cursor-pointer flex items-center gap-3" @click="$store.app.setView('upload')">
+                <div class="w-10 h-10 rounded-xl bg-primary-500 text-white flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900 dark:text-white text-sm">Upload Video</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">Process video file</p>
+                </div>
+              </div>
+
+              <!-- Quick Action: Live Stream -->
+              <div class="glass-action group cursor-pointer flex items-center gap-3" @click="$store.app.setView('live')">
+                <div class="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center flex-shrink-0 relative">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                  </svg>
+                  <span class="absolute -top-1 -right-1 w-3 h-3 bg-red-400 rounded-full animate-pulse"></span>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900 dark:text-white text-sm">Live Stream</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">Real-time detection</p>
+                </div>
+              </div>
+
+              <!-- Quick Action: Single Image -->
+              <div class="glass-action group cursor-pointer flex items-center gap-3" @click="$store.app.setView('image')">
+                <div class="w-10 h-10 rounded-xl bg-violet-500 text-white flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900 dark:text-white text-sm">Single Image</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">Analyze one image</p>
+                </div>
+              </div>
+
+              <!-- Quick Action: Watchlist -->
+              <div class="glass-action group cursor-pointer flex items-center gap-3" @click="$store.app.setView('watchlist')">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-gray-900 dark:text-white text-sm">Watchlist</p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">Manage alerts</p>
+                </div>
+                <span class="badge badge-neutral text-[10px]" x-text="$store.app.watchlistCount || 0"></span>
+              </div>
+            </div>
+
+            <!-- Recent Activity Section -->
+            <div class="grid grid-cols-1 gap-6">
+
+              <!-- Recent Detections & Processing Jobs - Side by Side -->
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Recent Detections -->
+                <div class="card">
+                  <div class="card-header">
+                    <div class="flex items-center gap-3">
+                      <div class="icon-container icon-container-primary">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 class="font-semibold text-gray-900 dark:text-white">Recent Detections</h2>
+                        <p class="text-xs text-gray-500">Latest plate recognitions</p>
+                      </div>
+                    </div>
+                    <button @click="$store.app.setView('results')" class="btn btn-ghost btn-sm group">
+                      View All
+                      <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="max-h-[350px] overflow-y-auto">
+                      <table class="table">
+                        <thead>
+                          <tr>
+                            <th>Plate Number</th>
+                            <th>Confidence</th>
+                            <th>Source</th>
+                            <th>Time</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="detection in recentDetections" :key="detection.id">
+                            <tr @click="viewDetection(detection)" class="cursor-pointer">
+                              <td>
+                                <span class="plate-text text-xs" x-text="detection.plate_text"></span>
+                              </td>
+                              <td>
+                                <span class="badge" 
+                                      :class="detection.confidence >= 0.9 ? 'badge-success' : (detection.confidence >= 0.7 ? 'badge-warning' : 'badge-danger')"
+                                      x-text="(detection.confidence * 100).toFixed(0) + '%'"></span>
+                              </td>
+                              <td>
+                                <span class="text-sm text-gray-500 dark:text-gray-400 capitalize" x-text="detection.source_type"></span>
+                              </td>
+                              <td>
+                                <span class="text-sm text-gray-500 dark:text-gray-400" x-text="formatTime(detection.timestamp)"></span>
+                              </td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <!-- Empty State -->
+                    <div x-show="recentDetections.length === 0" class="empty-state">
+                      <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                      </svg>
+                      <p class="empty-state-title">No detections yet</p>
+                      <p class="empty-state-description">Upload a video or start a live stream to begin detecting plates.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Jobs -->
+                <div class="card">
+                  <div class="card-header">
+                    <div class="flex items-center gap-3">
+                      <div class="icon-container icon-container-primary">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 class="font-semibold text-gray-900 dark:text-white">Jobs</h2>
+                        <p class="text-xs text-gray-500">Video processing history</p>
+                      </div>
+                    </div>
+                    <button @click="$store.jobs.fetchJobs()" class="btn btn-ghost btn-sm">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="card-body p-0 max-h-[350px] overflow-y-auto">
+                    <!-- Empty State -->
+                    <div x-show="$store.jobs.items.length === 0" class="empty-state">
+                      <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                      </svg>
+                      <p class="empty-state-title">No jobs yet</p>
+                      <p class="empty-state-description">Upload a video to start processing</p>
+                    </div>
+                    
+                    <!-- Job List -->
+                    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                      <template x-for="job in $store.jobs.items.slice(0, 10)" :key="job.id">
+                        <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                          <div class="flex items-start justify-between mb-2">
+                            <div class="flex items-center gap-3">
+                              <div class="w-8 h-8 rounded-lg flex items-center justify-center"
+                                   :class="{
+                                     'bg-blue-100 dark:bg-blue-900/30 text-blue-600': job.status === 'processing' || job.status === 'normalizing' || job.status === 'annotating',
+                                     'bg-green-100 dark:bg-green-900/30 text-green-600': job.status === 'completed',
+                                     'bg-red-100 dark:bg-red-900/30 text-red-600': job.status === 'failed' || job.status === 'cancelled',
+                                     'bg-gray-100 dark:bg-gray-700 text-gray-500': job.status === 'pending'
+                                   }">
+                                <svg x-show="job.status === 'processing' || job.status === 'normalizing' || job.status === 'annotating'" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <svg x-show="job.status === 'completed'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <svg x-show="job.status === 'failed' || job.status === 'cancelled'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                                <svg x-show="job.status === 'pending'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                              </div>
+                              <div class="min-w-0">
+                                <p class="font-medium text-gray-900 dark:text-white text-sm truncate max-w-[120px]" x-text="job.original_filename"></p>
+                                <p class="text-xs text-gray-500" x-text="new Date(job.created_at).toLocaleString()"></p>
+                              </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                              <span class="badge text-xs" 
+                                    :class="{
+                                      'badge-info': job.status === 'processing' || job.status === 'normalizing' || job.status === 'annotating',
+                                      'badge-success': job.status === 'completed',
+                                      'badge-danger': job.status === 'failed' || job.status === 'cancelled',
+                                      'badge-neutral': job.status === 'pending'
+                                    }" 
+                                    x-text="job.status"></span>
+                              <!-- Cancel button for active jobs -->
+                              <button x-show="['processing', 'pending', 'normalizing', 'annotating'].includes(job.status)" 
+                                      @click.stop="$store.jobs.cancelJob(job.id)" 
+                                      class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
+                                      title="Cancel job">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                              </button>
+                              <!-- Mark failed button for stuck jobs -->
+                              <button x-show="['processing', 'normalizing', 'annotating'].includes(job.status)" 
+                                      @click.stop="$store.jobs.markFailed(job.id)" 
+                                      class="p-1 rounded hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-500 transition-colors"
+                                      title="Mark as failed">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <!-- Progress for processing jobs -->
+                          <div x-show="['processing', 'normalizing', 'annotating'].includes(job.status)" class="mt-2" x-transition>
+                            <div class="progress h-1">
+                              <div class="progress-bar progress-bar-animated" :style="`width: ${job.progress}%`"></div>
+                            </div>
+                          </div>
+
+                          <!-- Stats for completed jobs -->
+                          <div x-show="job.status === 'completed'" class="mt-2 flex items-center justify-between">
+                            <span class="text-xs text-gray-500" x-text="(job.detection_count || 0) + ' plates detected'"></span>
+                            <button x-show="job.detection_count > 0" 
+                                    @click.stop="viewJobResults(job.id)" 
+                                    class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 font-medium flex items-center gap-1">
+                              View
+                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- System Health Row - Compact -->
+              <div class="glass-card rounded-xl px-6 py-2.5">
+                <div class="flex items-center justify-between">
+                  <!-- GPU Utilization -->
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">GPU Util</span>
+                    <span class="text-sm font-semibold"
+                          :class="{
+                            'text-green-600 dark:text-green-400': health.gpu_utilization !== null && health.gpu_utilization < 50,
+                            'text-yellow-600 dark:text-yellow-400': health.gpu_utilization !== null && health.gpu_utilization >= 50 && health.gpu_utilization < 80,
+                            'text-orange-600 dark:text-orange-400': health.gpu_utilization !== null && health.gpu_utilization >= 80 && health.gpu_utilization < 95,
+                            'text-red-600 dark:text-red-400': health.gpu_utilization !== null && health.gpu_utilization >= 95,
+                            'text-gray-500': health.gpu_utilization === null
+                          }"
+                          x-text="health.gpu_utilization !== null ? health.gpu_utilization + '%' : 'N/A'"></span>
+                  </div>
+                  
+                  <!-- GPU Memory -->
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                    </svg>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">VRAM</span>
+                    <span class="text-sm font-semibold"
+                          :class="{
+                            'text-green-600 dark:text-green-400': health.gpu_memory_percent !== null && health.gpu_memory_percent < 50,
+                            'text-yellow-600 dark:text-yellow-400': health.gpu_memory_percent !== null && health.gpu_memory_percent >= 50 && health.gpu_memory_percent < 80,
+                            'text-orange-600 dark:text-orange-400': health.gpu_memory_percent !== null && health.gpu_memory_percent >= 80 && health.gpu_memory_percent < 95,
+                            'text-red-600 dark:text-red-400': health.gpu_memory_percent !== null && health.gpu_memory_percent >= 95,
+                            'text-gray-500': !health.gpu_available
+                          }"
+                          x-text="health.gpu_memory_used ? health.gpu_memory_used + ' / ' + health.gpu_memory_total : (health.gpu_available ? 'Available' : 'N/A')"></span>
+                  </div>
+                  
+                  <!-- Database -->
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                    </svg>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Database</span>
+                    <span class="flex items-center gap-1">
+                      <span class="status-dot" :class="health.database_connected ? 'status-online' : 'status-offline'"></span>
+                      <span class="text-sm font-semibold" 
+                            :class="health.database_connected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                            x-text="health.database_connected ? 'Connected' : 'Disconnected'"></span>
+                    </span>
+                  </div>
+                  
+                  <!-- API Status -->
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/>
+                    </svg>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">API</span>
+                    <span class="flex items-center gap-1">
+                      <span class="status-dot" :class="$store.app.isOnline ? 'status-online' : 'status-offline'"></span>
+                      <span class="text-sm font-semibold" 
+                            :class="$store.app.isOnline ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                            x-text="$store.app.isOnline ? 'Healthy' : 'Offline'"></span>
+                    </span>
+                  </div>
+                  
+                  <!-- Uptime -->
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">Uptime</span>
+                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-300" x-text="health.uptime || 'N/A'"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>

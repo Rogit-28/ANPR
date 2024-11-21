@@ -1,0 +1,599 @@
+        <div x-show="$store.app.currentView === 'results'" x-cloak
+             x-on:hide="$store.detections.stopAutoRefresh()">
+          <div x-data="resultsView" x-init="init()" x-effect="if ($store.app.currentView !== 'results') { $store.detections.stopAutoRefresh() }">
+            <!-- Detection Detail Modal -->
+            <div x-show="showModal" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 z-50 overflow-y-auto" 
+                 @keydown.escape.window="closeModal()"
+                 x-cloak>
+              <!-- Backdrop -->
+              <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" @click="closeModal()"></div>
+              
+              <!-- Modal Content -->
+              <div class="relative min-h-screen flex items-center justify-center p-4">
+                <div x-show="showModal"
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0 scale-95"
+                     x-transition:enter-end="opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100 scale-100"
+                     x-transition:leave-end="opacity-0 scale-95"
+                     class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden"
+                     @click.stop>
+                  
+                  <!-- Modal Header -->
+                  <div class="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-4">
+                      <div class="icon-container icon-container-primary">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Detection Details</h3>
+                        <p class="text-sm text-gray-500">Full information about this detection</p>
+                      </div>
+                    </div>
+                    <button @click="closeModal()" class="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </div>
+                  
+                    <!-- Modal Body -->
+                    <div class="p-6" x-show="selectedDetection">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Image Preview -->
+                        <div class="aspect-video bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden relative">
+                          <!-- Loading spinner -->
+                          <div x-show="snapshotLoading" class="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 z-20">
+                            <div class="spinner spinner-md"></div>
+                          </div>
+                          <!-- Actual image -->
+                          <img :src="getSnapshotUrl(selectedDetection?.id)" 
+                               alt="Plate snapshot" 
+                               class="w-full h-full object-contain relative z-10"
+                               :class="{'hidden': snapshotError}"
+                               @load="onSnapshotLoad()"
+                               @error="onSnapshotError()">
+                          <!-- Error/placeholder state -->
+                          <div x-show="snapshotError" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-200 dark:bg-gray-700 z-10">
+                            <svg class="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <span class="text-xs text-gray-500">Snapshot not available</span>
+                          </div>
+                        </div>
+                      
+                      <!-- Detection Info -->
+                      <div class="space-y-4">
+                        <!-- Plate Number -->
+                        <div>
+                          <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Plate Number</label>
+                          <div class="mt-1">
+                            <span class="plate-text text-lg" x-text="selectedDetection?.plate_text"></span>
+                          </div>
+                        </div>
+                        
+                        <!-- Confidence -->
+                        <div>
+                          <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Confidence</label>
+                          <div class="mt-1 flex items-center gap-3">
+                            <div class="flex-1 progress h-3">
+                              <div class="progress-bar" 
+                                   :class="selectedDetection?.confidence >= 0.9 ? 'bg-green-500' : (selectedDetection?.confidence >= 0.7 ? 'bg-yellow-500' : 'bg-red-500')"
+                                   :style="`width: ${(selectedDetection?.confidence || 0) * 100}%`"></div>
+                            </div>
+                            <span class="badge" 
+                                  :class="getConfidenceBadge(selectedDetection?.confidence)"
+                                  x-text="((selectedDetection?.confidence || 0) * 100).toFixed(1) + '%'"></span>
+                          </div>
+                        </div>
+                        
+                        <!-- Source -->
+                        <div>
+                          <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Source</label>
+                          <p class="mt-1 text-gray-900 dark:text-white capitalize" x-text="selectedDetection?.source_type || 'Unknown'"></p>
+                        </div>
+                        
+                        <!-- Timestamp -->
+                        <div>
+                          <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Detected At</label>
+                          <p class="mt-1 text-gray-900 dark:text-white" x-text="formatTime(selectedDetection?.timestamp)"></p>
+                        </div>
+                        
+                        <!-- Frame Number -->
+                        <div x-show="selectedDetection?.frame_number">
+                          <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Frame / Video Time</label>
+                          <p class="mt-1 text-gray-900 dark:text-white">
+                            <span x-text="'Frame ' + selectedDetection?.frame_number"></span>
+                            <span class="text-gray-500 ml-2" x-text="'(' + formatVideoTime(selectedDetection?.frame_number) + ')'"></span>
+                          </p>
+                        </div>
+                        
+                        <!-- Source File -->
+                        <div x-show="selectedDetection?.source_identifier">
+                          <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Source File</label>
+                          <p class="mt-1 text-gray-900 dark:text-white text-sm truncate" x-text="selectedDetection?.source_identifier?.split(/[/\\\\]/).pop()"></p>
+                        </div>
+                        
+                        <!-- Job ID -->
+                        <div x-show="selectedDetection?.job_id">
+                          <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Job ID</label>
+                          <p class="mt-1 text-gray-600 dark:text-gray-400 text-xs font-mono" x-text="selectedDetection?.job_id"></p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Modal Footer -->
+                  <div class="flex items-center justify-between p-6 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
+                    <button @click="addToWatchlist(selectedDetection?.plate_text)" class="btn btn-outline">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                      </svg>
+                      Add to Watchlist
+                    </button>
+                    <div class="flex items-center gap-3">
+                      <button @click="deleteDetection(selectedDetection?.id); closeModal();" class="btn btn-ghost text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Delete
+                      </button>
+                      <button @click="closeModal()" class="btn btn-secondary">Close</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Filters Card -->
+            <div class="card mb-6">
+              <div class="card-header">
+                <div class="flex items-center gap-3">
+                  <div class="icon-container icon-container-primary">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                    </svg>
+                  </div>
+                  <h2 class="font-semibold text-gray-900 dark:text-white">Filters</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button @click="resetFilters()" class="btn btn-ghost btn-sm" title="Reset filters">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                  </button>
+                  <button @click="refresh()" class="btn btn-ghost btn-sm" :disabled="$store.detections.isLoading" title="Refresh">
+                    <svg class="w-4 h-4" :class="$store.detections.isLoading && 'animate-spin'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                  </button>
+                  <!-- Export Dropdown -->
+                  <div class="relative" x-data="{ exportOpen: false }">
+                    <button @click="exportOpen = !exportOpen" class="btn btn-secondary btn-sm" :disabled="exporting">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                      </svg>
+                      Export
+                      <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                      </svg>
+                    </button>
+                    <div x-show="exportOpen" @click.away="exportOpen = false" 
+                         x-transition:enter="transition ease-out duration-100"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         x-transition:leave="transition ease-in duration-75"
+                         x-transition:leave-start="opacity-100 scale-100"
+                         x-transition:leave-end="opacity-0 scale-95"
+                         class="absolute right-0 mt-2 w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50">
+                      <button @click="exportCSV(); exportOpen = false" class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        CSV
+                      </button>
+                      <button @click="exportJSON(); exportOpen = false" class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                        </svg>
+                        JSON
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="flex flex-wrap items-end gap-4">
+                  <div class="input-group flex-1 min-w-[180px]">
+                    <label class="label">Plate Number</label>
+                    <div class="relative">
+                      <input type="text" x-model="$store.detections.filters.plateText" placeholder="Search plate..." class="input pl-10">
+                      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                      </svg>
+                    </div>
+                  </div>
+                  <div class="input-group flex-1 min-w-[140px]">
+                    <label class="label">Min Confidence</label>
+                    <select x-model="$store.detections.filters.minConfidence" class="select">
+                      <option value="">Any</option>
+                      <option value="0.9">90%+</option>
+                      <option value="0.8">80%+</option>
+                      <option value="0.7">70%+</option>
+                      <option value="0.5">50%+</option>
+                    </select>
+                  </div>
+                  <div class="input-group flex-1 min-w-[140px]">
+                    <label class="label">Source Type</label>
+                    <select x-model="$store.detections.filters.sourceType" class="select">
+                      <option value="">All</option>
+                      <option value="video">Video</option>
+                      <option value="camera">Camera</option>
+                      <option value="image">Image</option>
+                    </select>
+                  </div>
+                  <div class="input-group flex-1 min-w-[140px]">
+                    <label class="label">Date</label>
+                    <input type="date" x-model="$store.detections.filters.startDate" class="input">
+                  </div>
+                  <button @click="refresh()" class="btn btn-primary h-[42px] px-4" title="Search">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Results Card -->
+            <div class="card">
+              <div class="card-header">
+                <div class="flex items-center gap-3">
+                  <span class="font-semibold text-gray-900 dark:text-white" 
+                        x-text="viewMode === 'events' ? `${$store.detections.eventsTotal} events` : `${$store.detections.total} detections`"></span>
+                  <span class="badge badge-neutral" x-show="$store.detections.isLoading">Loading...</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <!-- Events View (default - performance optimized) -->
+                  <button @click="setViewMode('events')" 
+                          class="p-2.5 rounded-lg transition-colors" 
+                          :class="viewMode === 'events' ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                          title="Events view (recommended)">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                  </button>
+                  <!-- Grouped View (by job) -->
+                  <button @click="setViewMode('grouped')" 
+                          class="p-2.5 rounded-lg transition-colors" 
+                          :class="viewMode === 'grouped' ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                          title="Group by job">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                  </button>
+                  <!-- Grid View -->
+                  <button @click="setViewMode('grid')" 
+                          class="p-2.5 rounded-lg transition-colors" 
+                          :class="viewMode === 'grid' ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                          title="Grid view">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                    </svg>
+                  </button>
+                  <!-- Expand/Collapse All (only for grouped view) -->
+                  <template x-if="viewMode === 'grouped'">
+                    <div class="flex items-center gap-1 ml-2 border-l border-gray-200 dark:border-gray-700 pl-2">
+                      <button @click="expandAll()" class="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Expand all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                        </svg>
+                      </button>
+                      <button @click="collapseAll()" class="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Collapse all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <div class="card-body">
+                <!-- ========================================
+                     EVENTS VIEW (Default - Performance Optimized)
+                     Groups same plate within 30s window, shows best confidence
+                     ======================================== -->
+                <div x-show="viewMode === 'events'" class="space-y-3">
+                  <template x-for="event in $store.detections.events" :key="getEventKey(event)">
+                    <div class="event-card border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-primary-300 dark:hover:border-primary-600 transition-colors">
+                      <!-- Event Card - Main Content -->
+                      <div class="flex items-stretch">
+                        <!-- Snapshot Thumbnail -->
+                        <div class="w-32 sm:w-40 flex-shrink-0 bg-gray-100 dark:bg-gray-800 relative cursor-pointer" @click="showEventDetail(event)">
+                          <img :src="getSnapshotUrl(event.best_detection_id)" 
+                               alt="Best plate capture" 
+                               loading="lazy"
+                               decoding="async"
+                               class="w-full h-full object-cover"
+                               @error="$event.target.style.display='none'">
+                          <!-- Detection count badge -->
+                          <div class="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full font-semibold flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2m10 2V2M5 8h14M5 8a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V10a2 2 0 00-2-2M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8"/>
+                            </svg>
+                            <span x-text="event.detection_count"></span>
+                          </div>
+                          <!-- Video time badge -->
+                          <template x-if="event.best_frame_number && event.source_type === 'video'">
+                            <div class="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded font-mono">
+                              <span x-text="formatVideoTime(event.best_frame_number)"></span>
+                            </div>
+                          </template>
+                        </div>
+                        
+                        <!-- Event Info -->
+                        <div class="flex-1 p-4 flex flex-col justify-between min-w-0">
+                          <div>
+                            <!-- Plate + Confidence -->
+                            <div class="flex items-center gap-3 mb-2">
+                              <span class="plate-text text-base cursor-pointer hover:text-primary-600" @click="showEventDetail(event)" x-text="event.plate_text"></span>
+                              <span class="badge badge-sm" 
+                                    :class="event.best_confidence >= 0.9 ? 'badge-success' : (event.best_confidence >= 0.7 ? 'badge-warning' : 'badge-danger')"
+                                    x-text="(event.best_confidence * 100).toFixed(0) + '%'"></span>
+                            </div>
+                            <!-- Source info -->
+                            <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="getSourceTypeIcon(event.source_type)"/>
+                              </svg>
+                              <span class="truncate" x-text="formatSourceName(event.source_identifier)"></span>
+                            </div>
+                          </div>
+                          
+                          <!-- Time info -->
+                          <div class="flex items-center justify-between text-xs text-gray-400 mt-2">
+                            <span x-text="getRelativeTime(event.last_seen)"></span>
+                            <span x-show="event.detection_count > 1" class="text-gray-500" x-text="'Duration: ' + formatEventDuration(event)"></span>
+                          </div>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div class="flex flex-col justify-center gap-2 px-4 border-l border-gray-100 dark:border-gray-700">
+                          <button @click="showEventDetail(event)" class="p-2 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors" title="View details">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            </svg>
+                          </button>
+                          <button @click="addToWatchlist(event.plate_text)" class="p-2 rounded-lg text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Add to watchlist">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                  
+                  <!-- Pagination for Events -->
+                  <div x-show="$store.detections.eventsTotal > 0" class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+                    <span class="text-sm text-gray-500" x-text="`Showing ${Math.min(($store.detections.page - 1) * $store.detections.pageSize + 1, $store.detections.eventsTotal)} - ${Math.min($store.detections.page * $store.detections.pageSize, $store.detections.eventsTotal)} of ${$store.detections.eventsTotal}`"></span>
+                    <div class="flex items-center gap-2">
+                      <button @click="prevEventsPage()" class="btn btn-secondary btn-sm" :disabled="$store.detections.page === 1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                      </button>
+                      <span class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium" x-text="$store.detections.page + ' / ' + Math.ceil($store.detections.eventsTotal / $store.detections.pageSize)"></span>
+                      <button @click="nextEventsPage()" class="btn btn-secondary btn-sm" :disabled="$store.detections.page * $store.detections.pageSize >= $store.detections.eventsTotal">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- Empty state for events view -->
+                  <div x-show="$store.detections.events.length === 0 && !$store.detections.isLoading" class="text-center py-12">
+                    <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    <p class="text-gray-500 dark:text-gray-400 mb-2">No detection events found</p>
+                    <p class="text-sm text-gray-400">Upload a video or image to start detecting plates</p>
+                  </div>
+                </div>
+
+                <!-- Grouped View (by Job) - Legacy -->
+                <div x-show="viewMode === 'grouped'" class="space-y-4">
+                  <template x-for="group in $store.detections.groupedByJob" :key="group.job_id">
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                      <!-- Job Header (collapsible) -->
+                      <div @click="toggleJob(group.job_id)" 
+                           class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        <div class="flex items-center gap-4 min-w-0">
+                          <!-- Source Type Icon -->
+                          <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center"
+                               :class="group.source_type === 'video' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' : 
+                                       (group.source_type === 'image' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' : 
+                                       'bg-green-100 dark:bg-green-900/30 text-green-600')">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="getSourceTypeIcon(group.source_type)"/>
+                            </svg>
+                          </div>
+                          <!-- Job Info -->
+                          <div class="min-w-0">
+                            <div class="flex items-center gap-2">
+                              <h3 class="font-semibold text-gray-900 dark:text-white truncate" x-text="formatJobSource(group)"></h3>
+                              <span class="badge badge-neutral text-xs capitalize" x-text="group.source_type || 'unknown'"></span>
+                            </div>
+                            <div class="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                              <span class="font-mono" x-text="'#' + (group.job_id === 'ungrouped' ? 'N/A' : group.job_id.substring(0, 8))"></span>
+                              <span>&bull;</span>
+                              <span x-text="getRelativeTime(group.latest_timestamp)"></span>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- Stats & Toggle -->
+                        <div class="flex items-center gap-4">
+                          <div class="flex items-center gap-3 text-sm">
+                            <div class="text-center">
+                              <div class="font-bold text-gray-900 dark:text-white" x-text="group.total_count"></div>
+                              <div class="text-xs text-gray-500">detections</div>
+                            </div>
+                            <div class="text-center">
+                              <div class="font-bold text-gray-900 dark:text-white" x-text="group.unique_plates"></div>
+                              <div class="text-xs text-gray-500">plates</div>
+                            </div>
+                          </div>
+                          <!-- Expand/Collapse Arrow -->
+                          <svg class="w-5 h-5 text-gray-400 transition-transform duration-200" 
+                               :class="isJobExpanded(group.job_id) && 'rotate-180'"
+                               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                          </svg>
+                        </div>
+                      </div>
+                      
+                      <!-- Detections Grid (expandable) -->
+                      <div x-show="isJobExpanded(group.job_id)" 
+                           x-transition:enter="transition ease-out duration-200"
+                           x-transition:enter-start="opacity-0 -translate-y-2"
+                           x-transition:enter-end="opacity-100 translate-y-0"
+                           class="p-4 bg-white dark:bg-gray-900/30">
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                          <template x-for="detection in group.detections" :key="detection.id">
+                            <div class="detection-card group cursor-pointer" @click="showDetail(detection)">
+                              <div class="aspect-video bg-gray-100 dark:bg-gray-700 relative overflow-hidden rounded-t-lg">
+                                <img :src="getSnapshotUrl(detection.id)" 
+                                     alt="Plate" 
+                                     loading="lazy"
+                                     decoding="async"
+                                     class="w-full h-full object-cover transition-transform group-hover:scale-105 relative z-10" 
+                                     @error="$event.target.classList.add('hidden')">
+                                <div class="absolute inset-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                  <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                  </svg>
+                                </div>
+                                <!-- Video time badge (for video detections) -->
+                                <template x-if="detection.frame_number && group.source_type === 'video'">
+                                  <div class="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded font-mono z-20">
+                                    <span x-text="formatVideoTime(detection.frame_number)"></span>
+                                  </div>
+                                </template>
+                              </div>
+                              <div class="p-2 bg-white dark:bg-gray-800 rounded-b-lg border-t border-gray-100 dark:border-gray-700">
+                                <div class="plate-text text-xs mb-1.5 truncate" x-text="detection.plate_text"></div>
+                                <div class="flex items-center justify-between text-xs">
+                                  <span class="badge badge-sm" 
+                                        :class="detection.confidence >= 0.9 ? 'badge-success' : (detection.confidence >= 0.7 ? 'badge-warning' : 'badge-danger')"
+                                        x-text="(detection.confidence * 100).toFixed(0) + '%'"></span>
+                                  <template x-if="detection.frame_number">
+                                    <span class="text-gray-400 text-xs" x-text="'F' + detection.frame_number"></span>
+                                  </template>
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                  
+                  <!-- Empty state for grouped view -->
+                  <div x-show="$store.detections.groupedByJob.length === 0 && !$store.detections.isLoading" class="text-center py-12">
+                    <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    <p class="text-gray-500 dark:text-gray-400 mb-2">No detections found</p>
+                    <p class="text-sm text-gray-400">Upload a video or image to start detecting plates</p>
+                  </div>
+                </div>
+
+                <!-- Grid View -->
+                <div x-show="viewMode === 'grid'" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  <template x-for="detection in $store.detections.items" :key="detection.id">
+                    <div class="detection-card group" @click="showDetail(detection)">
+                      <div class="aspect-video bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+                        <img :src="getSnapshotUrl(detection.id)" 
+                             alt="Plate" 
+                             loading="lazy"
+                             decoding="async"
+                             class="w-full h-full object-cover transition-transform group-hover:scale-105 relative z-10" 
+                             @error="$event.target.classList.add('hidden')">
+                        <div class="absolute inset-0 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                          </svg>
+                        </div>
+                        <!-- Overlay on hover -->
+                        <div class="detection-card-overlay">
+                          <span class="text-white text-xs font-medium">Click to view details</span>
+                        </div>
+                      </div>
+                      <div class="p-3">
+                        <div class="plate-text text-xs mb-2" x-text="detection.plate_text"></div>
+                        <div class="flex items-center justify-between text-xs">
+                          <span class="badge" 
+                                :class="detection.confidence >= 0.9 ? 'badge-success' : (detection.confidence >= 0.7 ? 'badge-warning' : 'badge-danger')"
+                                x-text="(detection.confidence * 100).toFixed(0) + '%'"></span>
+                          <span class="text-gray-500" x-text="formatTime(detection.timestamp)"></span>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- Empty State for Grid/Grouped views only -->
+                <div x-show="viewMode !== 'events' && $store.detections.items.length === 0 && !$store.detections.isLoading" class="empty-state">
+                  <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                  </svg>
+                  <p class="empty-state-title">No detections found</p>
+                  <p class="empty-state-description">Try adjusting your filters or upload a new video to process.</p>
+                  <button @click="$store.app.setView('upload')" class="btn btn-primary mt-4">
+                    Upload Video
+                  </button>
+                </div>
+
+                <!-- Loading State -->
+                <div x-show="$store.detections.isLoading" class="py-16 text-center">
+                  <div class="spinner spinner-lg mx-auto mb-4"></div>
+                  <p class="text-gray-500">Loading detections...</p>
+                </div>
+              </div>
+
+              <!-- Pagination Footer -->
+              <div class="card-footer flex items-center justify-between" x-show="$store.detections.total > $store.detections.pageSize">
+                <span class="text-sm text-gray-500" x-text="`Showing ${($store.detections.page - 1) * $store.detections.pageSize + 1} - ${Math.min($store.detections.page * $store.detections.pageSize, $store.detections.total)} of ${$store.detections.total}`"></span>
+                <div class="flex items-center gap-2">
+                  <button @click="prevPage()" class="btn btn-secondary btn-sm" :disabled="$store.detections.page === 1">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Previous
+                  </button>
+                  <span class="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium" x-text="$store.detections.page"></span>
+                  <button @click="nextPage()" class="btn btn-secondary btn-sm" :disabled="$store.detections.page * $store.detections.pageSize >= $store.detections.total">
+                    Next
+                    <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+

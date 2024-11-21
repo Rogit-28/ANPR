@@ -1,0 +1,163 @@
+        <div x-show="$store.app.currentView === 'live'" x-cloak>
+          <div x-data="liveStreamView" x-init="init()">
+            <!-- Live Badge (shown when streaming) -->
+            <div x-show="isStreaming" class="flex justify-end mb-4">
+              <span class="badge badge-live">
+                <span class="w-2 h-2 bg-white rounded-full animate-pulse mr-1"></span>
+                LIVE
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <!-- Stream Player -->
+              <div class="lg:col-span-2">
+                <div class="card overflow-hidden">
+                  <div class="card-header">
+                    <div class="flex items-center gap-3">
+                      <div class="icon-container" :class="isStreaming ? 'icon-container-success' : 'icon-container-primary'">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 class="font-semibold text-gray-900 dark:text-white">Stream Preview</h2>
+                        <p class="text-xs text-gray-500" x-text="isStreaming ? 'Connected to stream' : 'No active stream'"></p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <div class="status-dot" :class="isStreaming ? 'status-online' : 'status-offline'"></div>
+                      <span class="text-sm font-medium" :class="isStreaming ? 'text-green-600' : 'text-gray-500'" x-text="isStreaming ? 'Live' : 'Offline'"></span>
+                    </div>
+                  </div>
+                  
+                  <!-- Video Display Area -->
+                  <div class="relative bg-gray-900">
+                    <div class="aspect-video flex items-center justify-center">
+                      <!-- Offline State -->
+                      <div x-show="!isStreaming" class="text-center px-8">
+                        <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-800 flex items-center justify-center">
+                          <svg class="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                          </svg>
+                        </div>
+                        <p class="text-gray-400 text-lg font-medium mb-2">No Active Stream</p>
+                        <p class="text-gray-500 text-sm">Enter an RTSP or HTTP stream URL below to begin monitoring</p>
+                      </div>
+                      
+                      <!-- Active Stream -->
+                      <div x-show="isStreaming" class="absolute inset-0 flex items-center justify-center">
+                        <div class="text-center">
+                          <div class="spinner spinner-lg text-primary-500 mx-auto mb-4"></div>
+                          <p class="text-white text-sm">Stream active - detections will appear in the feed</p>
+                        </div>
+                      </div>
+                      
+                      <!-- Stream Stats Overlay -->
+                      <div x-show="isStreaming" class="absolute top-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg px-3 py-2 text-white text-xs">
+                        <div class="flex items-center gap-4">
+                          <span class="flex items-center gap-1">
+                            <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            REC
+                          </span>
+                          <span x-text="detections.length + ' plates'"></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Stream Controls Footer -->
+                  <div class="card-footer">
+                    <div class="flex items-center gap-4">
+                      <div class="flex-1">
+                        <div class="relative">
+                          <input type="text" 
+                                 x-model="streamUrl" 
+                                 placeholder="rtsp://camera-ip:554/stream or http://..." 
+                                 class="input pl-10" 
+                                 :disabled="isStreaming">
+                          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <button @click="startStream()" class="btn btn-success" x-show="!isStreaming" :disabled="!streamUrl">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Start Stream
+                      </button>
+                      <button @click="stopStream()" class="btn btn-danger" x-show="isStreaming">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                        </svg>
+                        Stop Stream
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Detection Feed -->
+              <div class="lg:col-span-1">
+                <div class="card h-full flex flex-col">
+                  <div class="card-header">
+                    <div class="flex items-center gap-3">
+                      <div class="icon-container icon-container-warning">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 class="font-semibold text-gray-900 dark:text-white">Live Detections</h2>
+                        <p class="text-xs text-gray-500">Real-time plate recognition</p>
+                      </div>
+                    </div>
+                    <span class="badge badge-info" x-text="detections.length + ' plates'"></span>
+                  </div>
+                  <div class="card-body flex-1 p-0 overflow-hidden">
+                    <div class="h-full max-h-[500px] overflow-y-auto scrollbar-thin">
+                      <!-- Empty State -->
+                      <div x-show="detections.length === 0" class="empty-state py-12">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        <p class="text-gray-500 text-sm">Waiting for detections...</p>
+                        <p class="text-gray-400 text-xs mt-1">Plates will appear here as they're detected</p>
+                      </div>
+                      
+                      <!-- Detection List -->
+                      <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                        <template x-for="detection in detections" :key="detection.id">
+                          <div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors animate-slideInRight">
+                            <div class="flex items-center justify-between mb-3">
+                              <span class="plate-text text-sm" x-text="detection.plate_text"></span>
+                              <span class="text-xs text-gray-500" x-text="formatTime(detection.timestamp)"></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                              <div class="flex items-center gap-2">
+                                <span class="badge"
+                                      :class="detection.confidence >= 0.9 ? 'badge-success' : (detection.confidence >= 0.7 ? 'badge-warning' : 'badge-danger')"
+                                      x-text="(detection.confidence * 100).toFixed(0) + '%'"></span>
+                              </div>
+                              <button @click="addToWatchlist(detection.plate_text)" 
+                                      class="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                                Add to Watchlist
+                              </button>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>

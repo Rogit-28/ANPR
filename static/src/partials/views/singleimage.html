@@ -1,0 +1,201 @@
+        <div x-show="$store.app.currentView === 'image'" x-cloak>
+          <div x-data="singleImageView" x-init="init()">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Upload Card -->
+              <div class="card">
+                <div class="card-header">
+                  <div class="flex items-center gap-3">
+                    <div class="icon-container icon-container-primary">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 class="font-semibold text-gray-900 dark:text-white">Upload Image</h2>
+                      <p class="text-xs text-gray-500">JPG, PNG, WebP up to 10MB</p>
+                    </div>
+                  </div>
+                  <button @click="reset()" class="btn btn-ghost btn-sm" x-show="selectedFile">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Reset
+                  </button>
+                </div>
+                <div class="card-body">
+                  <!-- Dropzone (show when no file selected) -->
+                  <div x-show="!selectedFile" 
+                       class="dropzone"
+                       :class="isDragging && 'active'"
+                       @dragover.prevent="isDragging = true"
+                       @dragleave.prevent="isDragging = false"
+                       @drop.prevent="handleDrop($event)"
+                       @click="$refs.imageInput.click()">
+                    <div class="flex flex-col items-center">
+                      <div class="w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mb-4">
+                        <svg class="w-10 h-10 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                      </div>
+                      <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Drop image here</p>
+                      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">or click to browse from your computer</p>
+                      <div class="flex flex-wrap justify-center gap-2 text-xs text-gray-400">
+                        <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">JPG</span>
+                        <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">PNG</span>
+                        <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">WebP</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <input type="file" accept="image/*" class="hidden" x-ref="imageInput" @change="handleFileSelect($event)">
+                  
+                  <!-- Image Preview (show when file selected) -->
+                  <div x-show="selectedFile" x-transition class="space-y-4">
+                    <div class="aspect-video bg-gray-100 dark:bg-gray-700 rounded-xl overflow-hidden relative">
+                      <img :src="previewUrl" alt="Preview" class="w-full h-full object-contain">
+                    </div>
+                    
+                    <!-- File Info -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
+                          <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <p class="font-medium text-gray-900 dark:text-white truncate max-w-[200px]" x-text="selectedFile?.name"></p>
+                          <p class="text-sm text-gray-500" x-text="formatFileSize(selectedFile?.size || 0)"></p>
+                        </div>
+                      </div>
+                      <button @click="$refs.imageInput.click()" class="btn btn-ghost btn-sm">
+                        Change
+                      </button>
+                    </div>
+                    
+                    <!-- Process Button -->
+                    <button @click="processImage()" class="btn btn-primary w-full" :disabled="processing">
+                      <svg x-show="!processing" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                      </svg>
+                      <svg x-show="processing" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                      </svg>
+                      <span x-text="processing ? 'Processing...' : 'Detect Plates'"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Results Card -->
+              <div class="card">
+                <div class="card-header">
+                  <div class="flex items-center gap-3">
+                    <div class="icon-container" :class="result?.detections?.length > 0 ? 'icon-container-success' : 'icon-container-primary'">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 class="font-semibold text-gray-900 dark:text-white">Detection Results</h2>
+                      <p class="text-xs text-gray-500">Recognized plates will appear here</p>
+                    </div>
+                  </div>
+                  <span class="badge badge-success" x-show="result?.detections?.length > 0" x-text="result?.detections?.length + ' found'"></span>
+                </div>
+                <div class="card-body">
+                  <!-- Empty State -->
+                  <div x-show="!result && !error && !processing" class="empty-state py-12">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    <p class="text-gray-500 text-sm">Upload an image to detect plates</p>
+                    <p class="text-gray-400 text-xs mt-1">Results will appear here after processing</p>
+                  </div>
+                  
+                  <!-- Processing State -->
+                  <div x-show="processing" class="py-16 text-center">
+                    <div class="spinner spinner-lg mx-auto mb-4"></div>
+                    <p class="text-gray-600 dark:text-gray-400 font-medium">Analyzing image...</p>
+                    <p class="text-gray-400 text-sm mt-1">Detecting and recognizing plates</p>
+                  </div>
+                  
+                  <!-- Error State -->
+                  <div x-show="error && !processing" class="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                    <div class="flex gap-3">
+                      <svg class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      <div>
+                        <p class="text-sm font-medium text-red-800 dark:text-red-200">Processing Failed</p>
+                        <p class="text-sm text-red-700 dark:text-red-300 mt-1" x-text="error"></p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- Results - No Plates Found -->
+                  <div x-show="result && (!result.detections || result.detections.length === 0) && !processing" class="empty-state py-12">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-gray-500 font-medium">No plates detected</p>
+                    <p class="text-gray-400 text-sm mt-1">Try uploading an image with visible license plates</p>
+                  </div>
+                  
+                  <!-- Results - Plates Found -->
+                  <div x-show="result?.detections?.length > 0 && !processing" class="space-y-4">
+                    <template x-for="(detection, index) in result?.detections || []" :key="index">
+                      <div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                        <div class="flex items-center justify-between mb-3">
+                          <span class="plate-text" x-text="detection.plate_text"></span>
+                          <span class="badge" 
+                                :class="getConfidenceBadge(detection.confidence)"
+                                x-text="(detection.confidence * 100).toFixed(0) + '%'"></span>
+                        </div>
+                        
+                        <!-- Confidence Bar -->
+                        <div class="mb-3">
+                          <div class="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>Confidence</span>
+                            <span x-text="(detection.confidence * 100).toFixed(1) + '%'"></span>
+                          </div>
+                          <div class="progress h-2">
+                            <div class="progress-bar" 
+                                 :class="detection.confidence >= 0.9 ? 'bg-green-500' : (detection.confidence >= 0.7 ? 'bg-yellow-500' : 'bg-red-500')"
+                                 :style="`width: ${detection.confidence * 100}%`"></div>
+                          </div>
+                        </div>
+                        
+                        <!-- Bounding Box Info (if available) -->
+                        <div x-show="detection.bbox" class="text-xs text-gray-500 mb-3">
+                          <span>Location: </span>
+                          <span x-text="`(${detection.bbox?.[0]?.toFixed(0)}, ${detection.bbox?.[1]?.toFixed(0)}) - (${detection.bbox?.[2]?.toFixed(0)}, ${detection.bbox?.[3]?.toFixed(0)})`"></span>
+                        </div>
+                        
+                        <!-- Actions -->
+                        <div class="flex items-center justify-end gap-2">
+                          <button @click="addToWatchlist(detection.plate_text)" class="btn btn-ghost btn-sm">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            Add to Watchlist
+                          </button>
+                        </div>
+                      </div>
+                    </template>
+                    
+                    <!-- Processing Time -->
+                    <div x-show="result?.processing_time" class="text-center text-sm text-gray-500 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      Processed in <span class="font-medium" x-text="(result?.processing_time * 1000).toFixed(0) + 'ms'"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>

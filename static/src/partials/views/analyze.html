@@ -1,0 +1,344 @@
+        <div x-show="$store.app.currentView === 'analyze'" x-cloak>
+          <div x-data="analyzeView" x-init="init()" x-on:destroy="destroy()">
+            <!-- Upload Dropzone Card -->
+            <div class="card mb-6">
+              <div class="card-body">
+                <div class="dropzone"
+                     :class="isDragging && 'active'"
+                     @dragover.prevent="isDragging = true"
+                     @dragleave.prevent="isDragging = false"
+                     @drop.prevent="handleDrop($event)"
+                     @click="$refs.analyzeFileInput.click()">
+                  
+                  <div class="flex flex-col items-center">
+                    <div class="w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center mb-4 transition-transform hover:scale-110">
+                      <svg class="w-10 h-10 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/>
+                      </svg>
+                    </div>
+                    
+                    <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Drop files here to analyze</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">or click to browse from your computer</p>
+                    
+                    <div class="flex flex-wrap justify-center gap-2 text-xs text-gray-400">
+                      <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">JPG</span>
+                      <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">PNG</span>
+                      <span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">WebP</span>
+                      <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded text-blue-600 dark:text-blue-400">MP4</span>
+                      <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded text-blue-600 dark:text-blue-400">AVI</span>
+                      <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded text-blue-600 dark:text-blue-400">MOV</span>
+                      <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded text-blue-600 dark:text-blue-400">MKV</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <input type="file" multiple accept="image/*,video/*" class="hidden" x-ref="analyzeFileInput" @change="handleFileSelect($event)">
+
+                <!-- Upload Queue -->
+                <div class="mt-6" x-show="files.length > 0" x-transition>
+                  <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                      <span class="font-semibold text-gray-900 dark:text-white">Upload Queue</span>
+                      <span class="badge badge-neutral" x-text="files.length + ' file(s)'"></span>
+                    </div>
+                    <div class="flex gap-2">
+                      <button @click="clearCompleted()" class="btn btn-ghost btn-sm" x-show="hasCompleted">
+                        Clear Done
+                      </button>
+                      <button @click="uploadAll()" class="btn btn-primary btn-sm" :disabled="uploading || !hasPending">
+                        <svg x-show="!uploading" class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                        </svg>
+                        <svg x-show="uploading" class="w-4 h-4 mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        <span x-text="uploading ? 'Processing...' : 'Analyze All'"></span>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div class="space-y-2 max-h-[200px] overflow-y-auto scrollbar-thin">
+                    <template x-for="(item, index) in files" :key="index">
+                      <div class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <!-- File Type Icon -->
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                             :class="item.isImage ? 'bg-green-100 dark:bg-green-900/30' : 'bg-blue-100 dark:bg-blue-900/30'">
+                          <svg x-show="item.isImage" class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                          </svg>
+                          <svg x-show="!item.isImage" class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                          </svg>
+                        </div>
+                        
+                        <!-- File Info -->
+                        <div class="flex-1 min-w-0">
+                          <p class="text-sm font-medium text-gray-900 dark:text-white truncate" x-text="item.file.name"></p>
+                          <p class="text-xs text-gray-500" x-text="formatFileSize(item.file.size)"></p>
+                        </div>
+                        
+                        <!-- Progress / Status -->
+                        <div class="flex items-center gap-2">
+                          <template x-if="item.status === 'uploading'">
+                            <div class="w-20">
+                              <div class="progress h-1.5">
+                                <div class="progress-bar" :style="`width: ${item.progress}%`"></div>
+                              </div>
+                            </div>
+                          </template>
+                          <span class="badge text-xs" :class="getStatusBadge(item.status)" x-text="item.status"></span>
+                          <button @click="removeFile(index)" class="text-gray-400 hover:text-red-500" x-show="item.status === 'pending' || item.status === 'error'">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Recent Jobs Section -->
+            <div class="card">
+              <div class="card-header">
+                <div class="flex items-center gap-3">
+                  <div class="icon-container icon-container-primary">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 class="font-semibold text-gray-900 dark:text-white">Recent Analysis</h2>
+                    <p class="text-xs text-gray-500">Click to expand and view results</p>
+                  </div>
+                </div>
+                <span class="badge badge-neutral" x-text="getRecentJobs().length + ' jobs'"></span>
+              </div>
+              <div class="card-body p-0">
+                <!-- Empty state -->
+                <div x-show="getRecentJobs().length === 0" class="empty-state py-12">
+                  <svg class="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                  </svg>
+                  <p class="text-gray-500">No analysis jobs yet</p>
+                  <p class="text-gray-400 text-sm mt-1">Upload files above to get started</p>
+                </div>
+                
+                <!-- Job List -->
+                <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                  <template x-for="job in getRecentJobs()" :key="job.id">
+                    <div class="group">
+                      <!-- Job Header (clickable) -->
+                      <div class="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                           @click="toggleJobExpanded(job.id)">
+                        <div class="flex items-center gap-4">
+                          <!-- Type Icon -->
+                          <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                               :class="job.source_type === 'image' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-blue-100 dark:bg-blue-900/30'">
+                            <svg x-show="job.source_type === 'image'" class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <svg x-show="job.source_type !== 'image'" class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                          </div>
+                          
+                          <!-- Job Info -->
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                              <p class="font-medium text-gray-900 dark:text-white truncate" x-text="job.original_filename"></p>
+                              <span class="badge text-xs" :class="getJobStatusBadge(job.status)" x-text="job.status"></span>
+                            </div>
+                            <div class="flex items-center gap-4 text-xs text-gray-500">
+                              <span x-text="formatTime(job.created_at)"></span>
+                              <span x-show="job.detection_count > 0" class="text-primary-600 dark:text-primary-400 font-medium" x-text="job.detection_count + ' plates'"></span>
+                              <span x-show="job.status === 'processing' || job.status === 'normalizing' || job.status === 'annotating'" x-text="job.progress + '%'"></span>
+                            </div>
+                            <!-- Progress bar for processing jobs -->
+                            <div x-show="job.status === 'processing' || job.status === 'normalizing' || job.status === 'annotating'" class="mt-2">
+                              <div class="progress h-1.5">
+                                <div class="progress-bar progress-bar-animated" :style="`width: ${job.progress}%`"></div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <!-- Expand Icon -->
+                          <svg class="w-5 h-5 text-gray-400 transition-transform" :class="isJobExpanded(job.id) && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                          </svg>
+                        </div>
+                      </div>
+                      
+                      <!-- Expanded Job Content -->
+                      <div x-show="isJobExpanded(job.id)" x-collapse>
+                        <div class="px-4 pb-4">
+                          <!-- Video Job Expanded View -->
+                          <template x-if="job.source_type !== 'image' && job.status === 'completed'">
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+                              <!-- Video Player (2/3 width) -->
+                              <div class="lg:col-span-2">
+                                <div class="relative bg-black rounded-lg overflow-hidden aspect-video">
+                                  <video :id="'video-player-' + job.id"
+                                         class="w-full h-full"
+                                         controls
+                                         preload="metadata"
+                                         :src="getAnnotatedVideoUrl(job.id)">
+                                    Your browser does not support the video element.
+                                  </video>
+                                </div>
+                              </div>
+                              
+                              <!-- Detections List (1/3 width) -->
+                              <div class="lg:col-span-1">
+                                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 h-full max-h-[400px] overflow-hidden flex flex-col">
+                                  <div class="p-3 border-b border-gray-200 dark:border-gray-700">
+                                    <div class="flex items-center justify-between mb-2">
+                                      <span class="font-medium text-sm text-gray-900 dark:text-white">Detections</span>
+                                      <span class="badge badge-neutral text-xs" x-text="getJobDetections(job.id).length"></span>
+                                    </div>
+                                    <div class="flex gap-1">
+                                      <button @click="toggleSort('time')" 
+                                              class="px-2 py-1 text-xs rounded transition-colors flex items-center gap-1"
+                                              :class="detectionSort === 'time' ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'">
+                                        Time
+                                        <svg x-show="detectionSort === 'time' && !sortDescending" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                                        </svg>
+                                        <svg x-show="detectionSort === 'time' && sortDescending" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                        </svg>
+                                      </button>
+                                      <button @click="toggleSort('confidence')" 
+                                              class="px-2 py-1 text-xs rounded transition-colors flex items-center gap-1"
+                                              :class="detectionSort === 'confidence' ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'">
+                                        Accuracy
+                                        <svg x-show="detectionSort === 'confidence' && !sortDescending" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/>
+                                        </svg>
+                                        <svg x-show="detectionSort === 'confidence' && sortDescending" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div class="flex-1 overflow-y-auto scrollbar-thin">
+                                    <template x-if="getJobDetections(job.id).length === 0">
+                                      <div class="p-4 text-center text-gray-500 text-sm">No detections</div>
+                                    </template>
+                                    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                                      <template x-for="det in getSortedDetections(job.id)" :key="det.id">
+                                        <div class="p-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer transition-colors"
+                                             @click="seekToDetection(job.id, det)">
+                                          <div class="flex items-center justify-between mb-1">
+                                            <span class="plate-text text-sm" x-text="det.plate_text"></span>
+                                            <span class="badge text-xs" :class="getConfidenceBadge(det.confidence)" x-text="Math.round(det.confidence * 100) + '%'"></span>
+                                          </div>
+                                          <div class="flex items-center gap-2 text-xs text-gray-500">
+                                            <span class="flex items-center gap-1 text-primary-600 dark:text-primary-400">
+                                              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                              </svg>
+                                              <span x-text="formatVideoTime(det.frame_number, job.fps)"></span>
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </template>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+                          
+                          <!-- Image Job Expanded View -->
+                          <template x-if="job.source_type === 'image' && job.status === 'completed'">
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+                              <!-- Annotated Image (2/3 width) -->
+                              <div class="lg:col-span-2">
+                                <div class="relative bg-gray-900 rounded-lg overflow-hidden">
+                                  <img :src="getAnnotatedImageUrl(job.id)" 
+                                       class="w-full h-auto max-h-[500px] object-contain"
+                                       alt="Annotated image">
+                                </div>
+                              </div>
+                              
+                              <!-- Detections List (1/3 width) -->
+                              <div class="lg:col-span-1">
+                                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 h-full max-h-[400px] overflow-hidden flex flex-col">
+                                  <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                    <span class="font-medium text-sm text-gray-900 dark:text-white">Detections</span>
+                                    <span class="badge badge-neutral text-xs" x-text="getJobDetections(job.id).length"></span>
+                                  </div>
+                                  <div class="flex-1 overflow-y-auto scrollbar-thin">
+                                    <template x-if="getJobDetections(job.id).length === 0">
+                                      <div class="p-4 text-center text-gray-500 text-sm">No plates detected</div>
+                                    </template>
+                                    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                                      <template x-for="det in getJobDetections(job.id)" :key="det.id">
+                                        <div class="p-3">
+                                          <div class="flex items-center justify-between mb-2">
+                                            <span class="plate-text text-sm" x-text="det.plate_text"></span>
+                                            <span class="badge text-xs" :class="getConfidenceBadge(det.confidence)" x-text="Math.round(det.confidence * 100) + '%'"></span>
+                                          </div>
+                                          <div class="flex items-center gap-2">
+                                            <button @click="$store.watchlist.addPlate(det.plate_text).then(() => $store.app.addToast('Added to watchlist', 'success')).catch(e => $store.app.addToast(e.message, 'error'))" 
+                                                    class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400">
+                                              + Add to Watchlist
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </template>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+                          
+                          <!-- Processing State -->
+                          <template x-if="job.status === 'processing' || job.status === 'normalizing' || job.status === 'annotating'">
+                            <div class="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-8 text-center">
+                              <div class="spinner spinner-lg text-primary-500 mx-auto mb-4"></div>
+                              <p class="text-gray-600 dark:text-gray-400 mb-2">Processing...</p>
+                              <p class="text-sm text-gray-500" x-text="job.status + ' (' + job.progress + '%)'"></p>
+                            </div>
+                          </template>
+                          
+                          <!-- Failed State -->
+                          <template x-if="job.status === 'failed'">
+                            <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 text-center">
+                              <p class="text-red-600 dark:text-red-400 font-medium mb-1">Processing Failed</p>
+                              <p class="text-sm text-red-500" x-text="job.error_message || 'Unknown error'"></p>
+                            </div>
+                          </template>
+                          
+                          <!-- Job Actions -->
+                          <div class="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <button @click="viewInResults(job.id)" class="btn btn-ghost btn-sm" x-show="job.status === 'completed' && job.detection_count > 0">
+                              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                              </svg>
+                              View in Results
+                            </button>
+                            <button @click="cancelJob(job.id)" class="btn btn-ghost btn-sm text-yellow-600" x-show="job.status === 'processing' || job.status === 'pending'">
+                              Cancel
+                            </button>
+                            <button @click="deleteJob(job.id)" class="btn btn-ghost btn-sm text-red-600 ml-auto">
+                              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>

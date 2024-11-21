@@ -1,0 +1,361 @@
+        <div x-show="$store.app.currentView === 'settings'" x-cloak>
+          <div x-data="settingsView" x-init="init()">
+            <!-- Restart Required Banner -->
+            <div x-show="restartRequired" x-cloak
+                 class="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+                  <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-amber-800 dark:text-amber-200">Restart Required</p>
+                  <p class="text-sm text-amber-600 dark:text-amber-400">Some settings require a server restart to take effect</p>
+                </div>
+              </div>
+              <button @click="restartServer()" 
+                      :disabled="isRestarting"
+                      class="btn bg-amber-600 hover:bg-amber-700 text-white">
+                <template x-if="isRestarting">
+                  <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Restarting...
+                  </span>
+                </template>
+                <template x-if="!isRestarting">
+                  <span class="flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Restart Now
+                  </span>
+                </template>
+              </button>
+            </div>
+
+            <!-- Loading State -->
+            <div x-show="isLoading" class="flex items-center justify-center py-12">
+              <svg class="w-8 h-8 animate-spin text-primary-600" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+
+            <div x-show="!isLoading" class="space-y-6">
+              
+              <!-- System Status Card -->
+              <div class="card">
+                <div class="card-header">
+                  <div class="flex items-center gap-3">
+                    <div class="icon-container icon-container-primary">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 class="font-semibold text-gray-900 dark:text-white">System Status</h2>
+                      <p class="text-xs text-gray-500">Hardware and environment information</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- API Version -->
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">API Version</p>
+                      <p class="font-semibold text-gray-900 dark:text-white" x-text="$store.settings.systemInfo.api_version || 'N/A'"></p>
+                    </div>
+                    <!-- Uptime -->
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Uptime</p>
+                      <p class="font-semibold text-gray-900 dark:text-white" x-text="$store.settings.systemInfo.uptime || 'N/A'"></p>
+                    </div>
+                    <!-- Python -->
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Python</p>
+                      <p class="font-semibold text-gray-900 dark:text-white" x-text="$store.settings.systemInfo.python_version || 'N/A'"></p>
+                    </div>
+                    <!-- GPU -->
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">GPU</p>
+                      <p class="font-semibold text-gray-900 dark:text-white" x-text="$store.settings.systemInfo.gpu_name || 'Not available'"></p>
+                    </div>
+                    <!-- GPU Memory -->
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">GPU Memory</p>
+                      <p class="font-semibold text-gray-900 dark:text-white" x-text="formatGpuMemory()"></p>
+                    </div>
+                    <!-- GPU Utilization -->
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">GPU Utilization</p>
+                      <p class="font-semibold text-gray-900 dark:text-white" x-text="formatGpuUtilization()"></p>
+                    </div>
+                    <!-- CUDA -->
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">CUDA</p>
+                      <p class="font-semibold text-gray-900 dark:text-white">
+                        <span x-show="$store.settings.systemInfo.cuda_available" x-text="'v' + ($store.settings.systemInfo.cuda_version || 'Unknown')"></span>
+                        <span x-show="!$store.settings.systemInfo.cuda_available" class="text-gray-400">Not available</span>
+                      </p>
+                    </div>
+                    <!-- ONNX Providers -->
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">ONNX Providers</p>
+                      <p class="font-semibold text-gray-900 dark:text-white text-sm" x-text="formatOnnxProviders()"></p>
+                    </div>
+                    <!-- Database -->
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                      <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Database</p>
+                      <p class="font-mono text-xs text-gray-900 dark:text-white truncate" x-text="$store.settings.systemInfo.database_path || 'N/A'" :title="$store.settings.systemInfo.database_path"></p>
+                    </div>
+                  </div>
+                  <!-- Config File Path -->
+                  <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Config File</p>
+                    <p class="font-mono text-xs text-gray-900 dark:text-white truncate" x-text="$store.settings.systemInfo.config_file_path || 'N/A'" :title="$store.settings.systemInfo.config_file_path"></p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Alerts Card -->
+              <div class="card">
+                <div class="card-header">
+                  <div class="flex items-center gap-3">
+                    <div class="icon-container icon-container-warning">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 class="font-semibold text-gray-900 dark:text-white">Alerts</h2>
+                      <p class="text-xs text-gray-500">Configure alert notifications</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body space-y-4">
+                  <!-- Alerts Enabled Toggle -->
+                  <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div>
+                      <p class="font-medium text-gray-900 dark:text-white">Alerts Enabled</p>
+                      <p class="text-sm text-gray-500">Enable or disable the alert system</p>
+                    </div>
+                    <button @click="$store.settings.config.alerts_enabled = !$store.settings.config.alerts_enabled"
+                            :class="$store.settings.config.alerts_enabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'"
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                      <span :class="$store.settings.config.alerts_enabled ? 'translate-x-5' : 'translate-x-0'"
+                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-0.5 ml-0.5"></span>
+                    </button>
+                  </div>
+                  <!-- Desktop Notifications Toggle -->
+                  <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div>
+                      <p class="font-medium text-gray-900 dark:text-white">Desktop Notifications</p>
+                      <p class="text-sm text-gray-500">Show system notifications for alerts</p>
+                    </div>
+                    <button @click="$store.settings.config.desktop_notifications = !$store.settings.config.desktop_notifications"
+                            :class="$store.settings.config.desktop_notifications ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'"
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                      <span :class="$store.settings.config.desktop_notifications ? 'translate-x-5' : 'translate-x-0'"
+                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-0.5 ml-0.5"></span>
+                    </button>
+                  </div>
+                  <!-- Test Alert Button -->
+                  <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div>
+                      <p class="font-medium text-gray-900 dark:text-white">Test Alert</p>
+                      <p class="text-sm text-gray-500">Send a test notification to verify alerts work</p>
+                    </div>
+                    <button @click="testAlert()" class="btn btn-sm bg-amber-500 hover:bg-amber-600 text-white">
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                      </svg>
+                      Test
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Detection Settings Card -->
+              <div class="card">
+                <div class="card-header">
+                  <div class="flex items-center gap-3">
+                    <div class="icon-container icon-container-success">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 class="font-semibold text-gray-900 dark:text-white">Detection</h2>
+                      <p class="text-xs text-gray-500">Model and recognition settings</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body space-y-5">
+                  <!-- YOLO Confidence Slider -->
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <label class="font-medium text-gray-900 dark:text-white">YOLO Confidence Threshold</label>
+                      <span class="text-sm font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded" x-text="formatConfidence($store.settings.config.yolo_confidence)"></span>
+                    </div>
+                    <input type="range" 
+                           x-model="$store.settings.config.yolo_confidence" 
+                           min="0.1" max="1" step="0.05"
+                           class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary-600">
+                    <p class="text-xs text-gray-500">Lower values detect more plates but may include false positives</p>
+                  </div>
+                  
+                  <!-- YOLO Weights Path -->
+                  <div class="space-y-2">
+                    <div class="flex items-center gap-2">
+                      <label class="font-medium text-gray-900 dark:text-white">YOLO Weights Path</label>
+                      <!-- Info Tooltip -->
+                      <div class="relative" x-data="{ showTooltip: false }">
+                        <button type="button" 
+                                @mouseenter="showTooltip = true" 
+                                @mouseleave="showTooltip = false"
+                                @focus="showTooltip = true"
+                                @blur="showTooltip = false"
+                                class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                        </button>
+                        <!-- Tooltip Content -->
+                        <div x-show="showTooltip" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 translate-y-1"
+                             x-transition:enter-end="opacity-100 translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 translate-y-0"
+                             x-transition:leave-end="opacity-0 translate-y-1"
+                             class="absolute left-0 top-6 z-50 w-72 p-3 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-xl"
+                             @click.stop>
+                          <p class="font-semibold mb-2.5 text-gray-100">Supported Model Formats:</p>
+                          <div class="space-y-2">
+                            <div class="flex items-start gap-3">
+                              <code class="shrink-0 font-mono text-emerald-400 bg-gray-800 dark:bg-gray-600 px-1.5 py-0.5 rounded text-[11px]">.pt</code>
+                              <span class="text-gray-300">PyTorch weights <span class="text-emerald-400">(recommended)</span></span>
+                            </div>
+                            <div class="flex items-start gap-3">
+                              <code class="shrink-0 font-mono text-blue-400 bg-gray-800 dark:bg-gray-600 px-1.5 py-0.5 rounded text-[11px]">.onnx</code>
+                              <span class="text-gray-300">ONNX format (cross-platform)</span>
+                            </div>
+                            <div class="flex items-start gap-3">
+                              <code class="shrink-0 font-mono text-orange-400 bg-gray-800 dark:bg-gray-600 px-1.5 py-0.5 rounded text-[11px]">.engine</code>
+                              <span class="text-gray-300">TensorRT engine (NVIDIA GPU)</span>
+                            </div>
+                          </div>
+                          <div class="mt-3 pt-2.5 border-t border-gray-700 dark:border-gray-600 text-gray-400 leading-relaxed">
+                            Use YOLOv8 or YOLOv11 models trained for license plate detection.
+                          </div>
+                          <!-- Arrow -->
+                          <div class="absolute -top-1 left-3 w-2 h-2 bg-gray-900 dark:bg-gray-700 rotate-45"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="flex gap-2">
+                      <input type="text" 
+                             x-model="$store.settings.config.yolo_weights_path"
+                             :class="hasError('yolo_weights') ? 'border-red-500 focus:ring-red-500' : ''"
+                             class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-mono focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                             placeholder="models/yolov11s-license-plate.pt">
+                      <!-- Hidden file input -->
+                      <input type="file" 
+                             x-ref="modelFileInput"
+                             @change="if($event.target.files[0]) { $store.settings.config.yolo_weights_path = $event.target.files[0].name; $store.settings.selectedModelFile = $event.target.files[0]; }"
+                             accept=".pt,.onnx,.engine"
+                             class="hidden">
+                      <!-- Browse Button -->
+                      <button type="button"
+                              @click="$refs.modelFileInput.click()"
+                              class="btn btn-ghost px-3 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                        </svg>
+                        Browse
+                      </button>
+                    </div>
+                    <p x-show="hasError('yolo_weights')" class="text-xs text-red-500" x-text="getError('yolo_weights')"></p>
+                    <p x-show="!hasError('yolo_weights')" class="text-xs text-gray-500">Path to YOLO model weights file (.pt, .onnx, .engine)</p>
+                  </div>
+                  
+                  <!-- Min OCR Confidence Slider -->
+                  <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                      <label class="font-medium text-gray-900 dark:text-white">Min OCR Confidence</label>
+                      <span class="text-sm font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded" x-text="formatConfidence($store.settings.config.min_ocr_confidence)"></span>
+                    </div>
+                    <input type="range" 
+                           x-model="$store.settings.config.min_ocr_confidence" 
+                           min="0.1" max="1" step="0.05"
+                           class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary-600">
+                    <p class="text-xs text-gray-500">Minimum confidence for OCR results to be saved</p>
+                  </div>
+                  
+                  <!-- Indian Plate Validation Toggle -->
+                  <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div>
+                      <p class="font-medium text-gray-900 dark:text-white">Indian Plate Validation</p>
+                      <p class="text-sm text-gray-500">Validate plates against Indian format (XX00XX0000)</p>
+                    </div>
+                    <button @click="$store.settings.config.plate_validation_enabled = !$store.settings.config.plate_validation_enabled"
+                            :class="$store.settings.config.plate_validation_enabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'"
+                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                      <span :class="$store.settings.config.plate_validation_enabled ? 'translate-x-5' : 'translate-x-0'"
+                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out mt-0.5 ml-0.5"></span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex items-center justify-between">
+                <button @click="resetToDefaults()" 
+                        :disabled="isSaving"
+                        class="btn btn-ghost text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  Reset to Defaults
+                </button>
+                
+                <div class="flex items-center gap-3">
+                  <button x-show="isDirty" 
+                          @click="discardChanges()"
+                          :disabled="isSaving"
+                          class="btn btn-ghost">
+                    Discard Changes
+                  </button>
+                  <button @click="saveSettings()" 
+                          :disabled="!isDirty || isSaving"
+                          :class="isDirty ? 'btn-primary' : 'btn-ghost opacity-50 cursor-not-allowed'"
+                          class="btn">
+                    <template x-if="isSaving">
+                      <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </span>
+                    </template>
+                    <template x-if="!isSaving">
+                      <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Save Changes
+                      </span>
+                    </template>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+

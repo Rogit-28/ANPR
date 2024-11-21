@@ -1,0 +1,163 @@
+        <div x-show="$store.app.currentView === 'watchlist'" x-cloak>
+          <div x-data="watchlistView" x-init="init()">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <!-- Add Plate Form -->
+              <div class="lg:col-span-1">
+                <div class="card">
+                  <div class="card-header">
+                    <div class="flex items-center gap-3">
+                      <div class="icon-container icon-container-warning">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 class="font-semibold text-gray-900 dark:text-white">Add to Watchlist</h2>
+                        <p class="text-xs text-gray-500">Get alerts when detected</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <form @submit.prevent="addPlate()">
+                      <div class="input-group mb-4">
+                        <label class="label">Plate Number</label>
+                        <input type="text" 
+                               x-model="newPlate" 
+                               placeholder="MH12AB1234" 
+                               class="input font-mono uppercase" 
+                               :class="validationError && 'input-error'"
+                               @input="newPlate = newPlate.toUpperCase()">
+                        <p class="text-sm text-red-500 mt-2 flex items-center gap-1" x-show="validationError">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                          <span x-text="validationError"></span>
+                        </p>
+                        <p class="text-xs text-gray-500 mt-2">
+                          <span class="font-medium">Format:</span> XX00XX0000 (e.g., MH12AB1234)
+                        </p>
+                      </div>
+                      <button type="submit" class="btn btn-primary w-full" :disabled="!newPlate">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Add to Watchlist
+                      </button>
+                    </form>
+                    
+                    <!-- Quick Info -->
+                    <div class="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
+                      <div class="flex gap-3">
+                        <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div>
+                          <p class="text-sm font-medium text-amber-800 dark:text-amber-200">How it works</p>
+                          <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">When a plate from your watchlist is detected, you'll receive a high-priority alert immediately.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Watchlist Table -->
+              <div class="lg:col-span-2">
+                <div class="card">
+                  <div class="card-header">
+                    <div class="flex items-center gap-3">
+                      <div class="icon-container icon-container-danger">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <h2 class="font-semibold text-gray-900 dark:text-white">Watched Plates</h2>
+                        <p class="text-xs text-gray-500">Plates under surveillance</p>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="badge badge-danger" x-text="$store.watchlist.items.length + ' plates'"></span>
+                      <!-- Clear All Button (2-step) -->
+                      <button x-show="$store.watchlist.items.length > 0"
+                              @click="clearAllClick()"
+                              @click.away="cancelClear()"
+                              :disabled="$store.watchlist.isClearing"
+                              :class="clearConfirmPending ? 'bg-red-600 hover:bg-red-700 text-white' : 'btn-ghost text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20'"
+                              class="btn btn-sm transition-all duration-200">
+                        <template x-if="$store.watchlist.isClearing">
+                          <span class="flex items-center gap-1">
+                            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Clearing...
+                          </span>
+                        </template>
+                        <template x-if="!$store.watchlist.isClearing && !clearConfirmPending">
+                          <span class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                            Clear All
+                          </span>
+                        </template>
+                        <template x-if="!$store.watchlist.isClearing && clearConfirmPending">
+                          <span class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                            Click to Confirm
+                          </span>
+                        </template>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="card-body p-0">
+                    <!-- Empty State -->
+                    <div x-show="$store.watchlist.items.length === 0" class="empty-state">
+                      <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                      </svg>
+                      <p class="empty-state-title">No plates in watchlist</p>
+                      <p class="empty-state-description">Add suspicious or VIP plates to receive high-priority alerts when they're detected.</p>
+                    </div>
+                    
+                    <!-- Table -->
+                    <table class="table" x-show="$store.watchlist.items.length > 0">
+                      <thead>
+                        <tr>
+                          <th>Plate Number</th>
+                          <th>Added</th>
+                          <th class="text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <template x-for="plate in $store.watchlist.items" :key="plate">
+                          <tr>
+                            <td>
+                              <span class="plate-text text-xs" x-text="plate.plate_text || plate"></span>
+                            </td>
+                            <td>
+                              <span class="text-sm text-gray-500" x-text="plate.added_at ? new Date(plate.added_at).toLocaleDateString() : '-'"></span>
+                            </td>
+                            <td class="text-right">
+                              <button @click="removePlate(plate.plate_text || plate)" 
+                                      class="btn btn-ghost btn-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
