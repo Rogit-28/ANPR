@@ -16,7 +16,38 @@
 </head>
 <body class="h-full antialiased font-sans">
   <div id="app" x-data class="min-h-full">
-    <!-- Content will be added in subsequent commits -->
+    
+    {{> components/toast}}
+    
+    {{> components/header}}
+    
+    {{> components/sidebar}}
+
+    <main class="pt-16 transition-all duration-300"
+          :class="$store.app.sidebarOpen ? 'ml-64' : 'ml-0'">
+      <div class="p-6">
+        
+        {{> views/dashboard}}
+        
+        {{> views/upload}}
+        
+        {{> views/analyze}}
+        
+        {{> views/livestream}}
+        
+        {{> views/results}}
+        
+        {{> views/watchlist}}
+        
+        {{> views/alerts}}
+        
+        {{> views/settings}}
+        
+        {{> views/singleimage}}
+
+      </div>
+    </main>
+
   </div>
 
   <script type="module" src="/src/main.js"></script>
