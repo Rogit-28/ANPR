@@ -145,3 +145,4 @@ python scripts/download_plate_model.py --variant s
 **Memory issues:**
 - Reduce `yolo_input_size` to 416
 - Disable `yolo_fp16` if GPU memory is limited
+  
